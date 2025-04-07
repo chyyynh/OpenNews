@@ -1,5 +1,6 @@
 import { ScheduledEvent, ExecutionContext, Request } from '@cloudflare/workers-types'; // Added Request
 import { XMLParser } from 'fast-xml-parser';
+import { parse } from 'node-html-parser'; // Import node-html-parser
 
 // Define the Env interface based on expected bindings in wrangler.toml
 interface Env {
@@ -8,6 +9,42 @@ interface Env {
 }
 
 const RSS_FEED_URL = 'https://cointelegraph.com/rss'; // Added https:// protocol
+
+// Function to fetch article content
+async function fetchArticleContent(url: string): Promise<string> {
+	try {
+		const res = await fetch(url);
+		if (!res.ok) {
+			console.error(`Error fetching article: ${res.status} ${res.statusText}`);
+			return '';
+		}
+		const html = await res.text();
+		return html;
+	} catch (error) {
+		console.error(`Error fetching article: ${error}`);
+		return '';
+	}
+}
+
+// Function to extract text from HTML
+function extractTextFromHTML(html: string): string {
+	try {
+		const root = parse(html);
+		const text = root.textContent; // Extract all text content
+		return text;
+	} catch (error) {
+		console.error(`Error extracting text from HTML: ${error}`);
+		return '';
+	}
+}
+
+// Function to simulate LLM analysis
+function analyzeArticleWithLLM(text: string): string {
+	// Replace this with actual LLM API call
+	console.log('Simulating LLM analysis...');
+	const summary = `This is a simulated summary of the article. The article text length is ${text.length}.`;
+	return summary;
+}
 
 export default {
 	// Add a basic fetch handler for wrangler dev compatibility
@@ -66,7 +103,16 @@ export default {
 					continue;
 				}
 
-				const message = `📰 <b>${title}</b>\n<a href="${link}">閱讀全文</a>`;
+				// Fetch article content
+				const articleHTML = await fetchArticleContent(link);
+				// Extract text from HTML
+				const articleText = extractTextFromHTML(articleHTML);
+				// Analyze article with LLM
+				const articleSummary = analyzeArticleWithLLM(articleText);
+
+				console.log(`Article Summary: ${articleSummary}`);
+
+				const message = `📰 <b>${title}</b>\n<a href="${link}">閱讀全文</a>\n摘要: ${articleSummary}`;
 				// Use env bindings instead of process.env
 				const telegramUrl = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`;
 				const payload = {
