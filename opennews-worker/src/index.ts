@@ -14,10 +14,10 @@ export default {
 		const parser = new XMLParser({ ignoreAttributes: false });
 		const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 
-		// Get the list of RSS feeds from the RssList table
-		const { data: rssFeeds, error: fetchRssListError } = await supabase.from('RssList').select('id, name, RSSLink, url'); // Only select RSS feeds that haven't been processed yet
+		// Fetch all RSS feeds from the RssList table
+		const { data: RSSList, error: fetchRssListError } = await supabase.from('RssList').select('id, name, RSSLink, url');
 
-		console.log('Fetched RSS feeds:', rssFeeds);
+		console.log('Fetched RSS feeds:', RSSList);
 
 		if (fetchRssListError) {
 			console.error('Error fetching RSS feeds from RssList:', fetchRssListError);
@@ -25,7 +25,8 @@ export default {
 		}
 
 		// Loop through each feed in the RssList table
-		for (const feed of rssFeeds) {
+		for (const feed of RSSList) {
+			console.log(`Processing feed: ${feed.name} (${feed.RSSLink})`);
 			try {
 				const res = await fetch(feed.RSSLink);
 				const xml = await res.text();
@@ -79,7 +80,7 @@ export default {
 					.from('RssList')
 					.update({
 						scraped_at: new Date(),
-						RSSLink: feed.url, // Store the URL as the processed link
+						url: feed.url, // Store the URL as the processed link
 					})
 					.eq('id', feed.id);
 
