@@ -5,7 +5,7 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "rss-feed-scraper",
-	"compatibility_date": "2025-04-07",
+	"compatibility_date": "2025-04-04",
 	"main": "src/index.ts",
 	// Configure schedule trigger
 	"triggers": {
@@ -24,7 +24,7 @@
 		"TELEGRAM_BOT_TOKEN": "",
 		"TELEGRAM_CHAT_ID": "",
 		"SUPABASE_URL": "",
-		"SUPABASE_ANON_KEY": ""
+		"SUPABASE_SERVICE_ROLE_KEY": ""
 	}
 	/**
 	 * Smart Placement
