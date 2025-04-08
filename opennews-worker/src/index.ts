@@ -14,8 +14,8 @@ export default {
 		const parser = new XMLParser({ ignoreAttributes: false });
 		const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 
-		// Get the list of RSS feeds from the RssList table
-		const { data: RSSList, error: fetchRssListError } = await supabase.from('RssList').select('id, name, RSSLink, url'); // Only select RSS feeds that haven't been processed yet
+		// Fetch all RSS feeds from the RssList table
+		const { data: RSSList, error: fetchRssListError } = await supabase.from('RssList').select('id, name, RSSLink, url');
 
 		console.log('Fetched RSS feeds:', RSSList);
 
