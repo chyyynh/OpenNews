@@ -4,14 +4,27 @@
  */
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "opennews-worker",
+	"name": "rss-feed-scraper",
+	"compatibility_date": "2025-04-07",
 	"main": "src/index.ts",
-	"compatibility_date": "2025-04-05",
+	// Configure schedule trigger
+	"triggers": {
+		"crons": [
+			"*/5 * * * *" // Every 5 minutes
+		]
+	},
 	"observability": {
 		"enabled": true
 	},
-	"triggers": {
-		"crons": ["*/5 * * * *"]
+	/**
+	 * Environment Variables
+	 * https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
+	 */
+	"vars": {
+		"TELEGRAM_BOT_TOKEN": "",
+		"TELEGRAM_CHAT_ID": "",
+		"SUPABASE_URL": "",
+		"SUPABASE_ANON_KEY": ""
 	}
 	/**
 	 * Smart Placement
@@ -24,16 +37,6 @@
 	 * Bindings allow your Worker to interact with resources on the Cloudflare Developer Platform, including
 	 * databases, object storage, AI inference, real-time communication and more.
 	 * https://developers.cloudflare.com/workers/runtime-apis/bindings/
-	 */
-
-	/**
-	 * Environment Variables
-	 * https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
-	 */
-	// "vars": { "MY_VARIABLE": "production_value" },
-	/**
-	 * Note: Use secrets to store sensitive data.
-	 * https://developers.cloudflare.com/workers/configuration/secrets/
 	 */
 
 	/**

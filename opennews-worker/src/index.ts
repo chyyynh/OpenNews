@@ -1,151 +1,76 @@
-import { ScheduledEvent, ExecutionContext, Request } from '@cloudflare/workers-types'; // Added Request
 import { XMLParser } from 'fast-xml-parser';
-import { parse } from 'node-html-parser'; // Import node-html-parser
+import { createClient } from '@supabase/supabase-js';
+import { sendMessageToTelegram } from './utils';
 
-// Define the Env interface based on expected bindings in wrangler.toml
 interface Env {
+	SUPABASE_URL: string;
+	SUPABASE_ANON_KEY: string;
 	TELEGRAM_BOT_TOKEN: string;
 	TELEGRAM_CHAT_ID: string;
 }
 
-const RSS_FEED_URL = 'https://cointelegraph.com/rss'; // Added https:// protocol
-
-// Function to fetch article content
-async function fetchArticleContent(url: string): Promise<string> {
-	try {
-		const res = await fetch(url);
-		if (!res.ok) {
-			console.error(`Error fetching article: ${res.status} ${res.statusText}`);
-			return '';
-		}
-		const html = await res.text();
-		return html;
-	} catch (error) {
-		console.error(`Error fetching article: ${error}`);
-		return '';
-	}
-}
-
-// Function to extract text from HTML
-function extractTextFromHTML(html: string): string {
-	try {
-		const root = parse(html);
-		const text = root.textContent; // Extract all text content
-		return text;
-	} catch (error) {
-		console.error(`Error extracting text from HTML: ${error}`);
-		return '';
-	}
-}
-
-// Function to simulate LLM analysis
-function analyzeArticleWithLLM(text: string): string {
-	// Replace this with actual LLM API call
-	console.log('Simulating LLM analysis...');
-	const summary = `This is a simulated summary of the article. The article text length is ${text.length}.`;
-	return summary;
-}
-
 export default {
-	// Add a basic fetch handler for wrangler dev compatibility
-	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-		return new Response('OpenNews Worker - Scheduled task handler only.', { status: 200 });
-	},
+	async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+		const rssFeedUrl = 'https://www.coindesk.com/arc/outboundfeeds/rss';
 
-	// Use _event to indicate it's unused, add types for all params
-	async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
-		console.log('\n\nScheduled function triggered...\n\n');
+		// Create Supabase client
+		const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY);
 
 		try {
-			const res = await fetch(RSS_FEED_URL);
-			if (!res.ok) {
-				console.error(`Error fetching RSS feed: ${res.status} ${res.statusText}`);
-				const errorText = await res.text();
-				console.error(`RSS Feed Response: ${errorText}`);
-				return; // Stop execution if feed fetch fails
-			}
-			const xml = await res.text();
-			console.log('RSS feed fetched successfully.');
-			// console.log('XML Content:', xml.substring(0, 500)); // Log first 500 chars of XML
+			const response = await fetch(rssFeedUrl);
+			const rssContent = await response.text();
 
-			// Use fast-xml-parser instead of DOMParser
-			const parser = new XMLParser({ ignoreAttributes: false }); // Keep attributes if needed
-			const jsonObj = parser.parse(xml);
-			// console.log('Parsed JSON Object:', JSON.stringify(jsonObj, null, 2).substring(0, 1000)); // Log first 1000 chars of JSON
+			const parser = new XMLParser();
+			const rssData = parser.parse(rssContent);
 
-			// Access items based on typical RSS structure (adjust if needed for the specific feed)
-			// Ensure item is an array, even if there's only one
-			let items = jsonObj?.rss?.channel?.item || [];
-			if (!Array.isArray(items)) {
-				items = [items]; // Wrap single item in an array
-			}
-			items = items.slice(0, 5); // latest 5
-
-			console.log(`Found ${items.length} items in the feed.`);
-
-			if (items.length === 0) {
-				console.log('No items found or parsed correctly. Check RSS structure and parser logic.');
-				// console.log('Full parsed JSON:', JSON.stringify(jsonObj, null, 2)); // Log full JSON if no items found
+			if (!rssData?.rss?.channel?.item) {
+				console.error('Invalid RSS feed format');
+				return;
 			}
 
-			for (const item of items) {
-				// Access properties directly from the parsed JSON object
-				const title = item.title;
-				const link = item.link;
-				const pubDate = item.pubDate;
+			const items = rssData.rss.channel.item;
 
-				console.log(`Processing item: ${title}`);
-
-				// Optional: filter or check if already sent (via KV or Supabase)
-
-				if (!title || !link) {
-					console.warn('Skipping item due to missing title or link:', item);
-					continue;
+			// Check if table exists, create if not
+			const { error: createTableError } = await supabase.from('articles').select('*', { head: true });
+			if (createTableError) {
+				const { error: createError } = await supabase.from('articles').insert([
+					{ id: 1, title: 'Initial article' }, // Dummy data to create the table
+				]);
+				if (createError) {
+					console.error('Error creating table:', createError);
+					return;
 				}
+			}
 
-				// Fetch article content
-				const articleHTML = await fetchArticleContent(link);
-				// Extract text from HTML
-				const articleText = extractTextFromHTML(articleHTML);
-				// Analyze article with LLM
-				const articleSummary = analyzeArticleWithLLM(articleText);
+			// Fetch existing article titles from the database
+			const { data: existingArticles, error: fetchError } = await supabase.from('articles').select('title');
 
-				console.log(`Article Summary: ${articleSummary}`);
+			if (fetchError) {
+				console.error('Error fetching articles:', fetchError);
+				return;
+			}
 
-				const message = `📰 <b>${title}</b>\n<a href="${link}">閱讀全文</a>\n摘要: ${articleSummary}`;
-				// Use env bindings instead of process.env
-				const telegramUrl = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`;
-				const payload = {
-					chat_id: env.TELEGRAM_CHAT_ID,
-					text: message,
-					parse_mode: 'HTML',
-				};
+			const existingTitles = existingArticles.map((article) => article.title);
 
-				console.log(`Sending message to Telegram for item: ${title}`);
-				const tgRes = await fetch(telegramUrl, {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify(payload),
-				});
+			// Compare the titles of new articles with the existing ones
+			const newArticles = items.filter((item: any) => !existingTitles.includes(item.title));
 
-				const tgResJson = await tgRes.json();
-				if (!tgRes.ok) {
-					console.error(`Error sending message to Telegram: ${tgRes.status} ${tgRes.statusText}`);
-					console.error('Telegram API Response:', JSON.stringify(tgResJson, null, 2));
+			// Insert the new article titles into the database
+			for (const article of newArticles) {
+				const { error: insertError } = await supabase.from('articles').insert([{ title: article.title }]);
+
+				if (insertError) {
+					console.error('Error inserting article:', insertError);
 				} else {
-					console.log(`Message sent successfully for item: ${title}`);
-					// console.log('Telegram API Success Response:', JSON.stringify(tgResJson, null, 2));
+					console.log('New article:', article.title);
+					// Send message to Telegram
+					await sendMessageToTelegram(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHAT_ID, `New article: ${article.title}`);
 				}
 			}
+
+			console.log('New articles:', newArticles);
 		} catch (error) {
-			console.error('An unexpected error occurred in the scheduled function:');
-			if (error instanceof Error) {
-				console.error(`Error Name: ${error.name}`);
-				console.error(`Error Message: ${error.message}`);
-				console.error(`Error Stack: ${error.stack}`);
-			} else {
-				console.error('Caught non-Error object:', error);
-			}
+			console.error('Error fetching or parsing RSS feed:', error);
 		}
 	},
 };
