@@ -14,6 +14,7 @@ export default {
 
 		// 获取当天文章
 		const now = new Date();
+		const today = new Date().toISOString().split('T')[0];
 		const startOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 		const endOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
 
