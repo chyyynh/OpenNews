@@ -13,12 +13,15 @@ export default {
 		const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 
 		// 获取当天文章
-		const today = new Date().toISOString().split('T')[0];
+		const now = new Date();
+		const startOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+		const endOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
+
 		const { data: articles, error } = await supabase
 			.from('articles')
 			.select('title, url, source, tags')
-			.gte('scraped_date', `${today}T00:00:00Z`)
-			.lte('scraped_date', `${today}T23:59:59Z`);
+			.gte('scraped_date', startOfDay.toISOString())
+			.lte('scraped_date', endOfDay.toISOString());
 
 		if (error) {
 			console.error('Error fetching articles:', error);
@@ -50,6 +53,11 @@ export default {
 		}
 
 		// 發送報告
-		await sendMessageToTelegram(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHAT_ID, report);
+		try {
+			await sendMessageToTelegram(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHAT_ID, report);
+			console.log('Daily report sent successfully');
+		} catch (error) {
+			console.error('Error sending daily report:', error);
+		}
 	},
 };
