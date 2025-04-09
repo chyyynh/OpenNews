@@ -1,6 +1,6 @@
 import { XMLParser } from 'fast-xml-parser';
 import { createClient } from '@supabase/supabase-js';
-import { sendMessageToTelegram } from './utils';
+import { sendMessageToTelegram, tagNews } from './utils';
 
 interface Env {
 	SUPABASE_URL: string;
@@ -53,6 +53,7 @@ export default {
 					const pubDate = item.pubDate || item.isoDate || null;
 					const summary = item.description || item['content:encoded'] || '';
 					const categories = item.category ? (Array.isArray(item.category) ? item.category : [item.category]) : [];
+					const tags = tagNews(item.title, summary);
 
 					const insert = {
 						url: item.link,
@@ -61,7 +62,7 @@ export default {
 						published_date: pubDate ? new Date(pubDate) : null,
 						scraped_date: new Date(),
 						categories,
-						tags: [], // optional
+						tags: tags, // optional
 						summary,
 					};
 
