@@ -1,11 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
-import { sendMessageToTelegram } from './utils';
+// Import both utility functions
+import { sendMessageToTelegram, summarizeWithGemini } from './utils';
+// Remove direct import of GoogleGenerativeAI components here
 
 interface Env {
 	SUPABASE_URL: string;
 	SUPABASE_SERVICE_ROLE_KEY: string;
 	TELEGRAM_BOT_TOKEN: string;
 	TELEGRAM_CHAT_ID: string;
+	GEMINI_API_KEY: string; // Added Gemini API Key
 }
 
 export default {
@@ -50,15 +53,32 @@ export default {
 				const coins = item.tags?.coins?.join(', ') || '無';
 				report += `- ${item.source}: ${item.title} (幣種: ${coins})\n  ${item.url}\n`;
 			});
-			report += '\n';
+			report += '\n'; // Keep the original report generation for input to AI
 		}
 
-		// 發送報告
+		// --- AI Summarization using Utility Function ---
 		try {
-			await sendMessageToTelegram(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHAT_ID, report);
-			console.log('Daily report sent successfully');
-		} catch (error) {
-			console.error('Error sending daily report:', error);
+			// The 'articles' data fetched from Supabase should match the ArticleForSummary interface
+			// defined in utils.ts because we selected title, url, source, and tags.
+			const summary = await summarizeWithGemini(env.GEMINI_API_KEY, articles);
+
+			// Prepend the date header to the AI summary
+			const finalReport = `📅 ${today} Crypto 新聞 AI 摘要\n\n${summary}`; // summary is already truncated in the util if needed
+
+			// --- Send AI Summary ---
+			console.log('Sending AI summary to Telegram...');
+			await sendMessageToTelegram(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHAT_ID, finalReport);
+			console.log('AI Daily report sent successfully');
+		} catch (aiError) {
+			console.error('Error during AI summarization or sending:', aiError);
+			// Send a fallback error message (error handling remains here)
+			let errorMessage = '未知錯誤';
+			if (aiError instanceof Error) {
+				errorMessage = aiError.message;
+			} else if (typeof aiError === 'string') {
+				errorMessage = aiError;
+			}
+			await sendMessageToTelegram(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHAT_ID, `📅 ${today} AI 摘要生成失敗: ${errorMessage}`);
 		}
 	},
 };

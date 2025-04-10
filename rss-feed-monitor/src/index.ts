@@ -53,7 +53,7 @@ export default {
 					const pubDate = item.pubDate || item.isoDate || null;
 					const summary = item.description || item['content:encoded'] || '';
 					const categories = item.category ? (Array.isArray(item.category) ? item.category : [item.category]) : [];
-					const tags = tagNews(item.title, summary);
+					const tags = tagNews(item.title);
 
 					const insert = {
 						url: item.link,
@@ -72,7 +72,7 @@ export default {
 						console.error(`[${feed.name}] Insert error:`, insertError);
 					} else {
 						await sendMessageToTelegram(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHAT_ID, `📰 ${feed.name}:${item.title}\n\n${item.link}`);
-						console.log(`[${feed.name}] New article: ${item.title}`);
+						console.log(`[${feed.name}] New article: ${item.title} tags ${JSON.stringify(tags)}`);
 					}
 				}
 
