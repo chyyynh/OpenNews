@@ -1,13 +1,20 @@
 // generate-session.js
+require("dotenv").config();
+
 const { TelegramClient } = require("telegram");
 const { StringSession } = require("telegram/sessions");
 const readline = require("readline");
 
-const apiId = 12345678; // 替換為你的 api_id（數字）
-const apiHash = ""; // 替換為你的 api_hash（字串）
-const client = new TelegramClient(new StringSession(""), apiId, apiHash, {
-  connectionRetries: 5,
-});
+const TELEGRAM_API_ID = process.env.TELEGRAM_API_ID; // 替換為你的 api_id（數字）
+const TELEGRAM_API_HASH = process.env.TELEGRAM_API_HASH; // 替換為你的 api_hash（字串）
+const client = new TelegramClient(
+  new StringSession(""),
+  TELEGRAM_API_ID,
+  TELEGRAM_API_HASH,
+  {
+    connectionRetries: 5,
+  }
+);
 
 const rl = readline.createInterface({
   input: process.stdin,

@@ -1,5 +1,4 @@
 import keyword_extractor from 'keyword-extractor';
-import { WordTokenizer } from 'natural';
 
 export async function sendMessageToTelegram(token: string, chatId: string, message: string) {
 	const url = `https://api.telegram.org/bot${token}/sendMessage`;

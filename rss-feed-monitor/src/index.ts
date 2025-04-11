@@ -109,6 +109,9 @@ export default {
 						console.log(`[${feed.name}] Updated RssList table`);
 					}
 				} else if (feed.type === 'telegram') {
+					// should edit this part to cloudflare queue, check https://developers.cloudflare.com/queues/
+					/*
+					const start = performance.now();
 					const apiId = parseInt(env.TELEGRAM_API_ID);
 					const apiHash = env.TELEGRAM_API_HASH;
 					const sessionString = env.TELEGRAM_SESSION;
@@ -117,13 +120,11 @@ export default {
 
 					try {
 						await client.connect();
-
 						// 從 url 欄位獲取 last_message_id，若無則設為 0
 						const lastMessageId = feed.url ? parseInt(feed.url) || 0 : 0;
-
 						// 獲取比 lastMessageId 更新的訊息
 						const messages = await client.getMessages(feed.RSSLink, {
-							limit: 10, // 設置一個合理上限
+							limit: 5, // 設置一個合理上限
 							minId: lastMessageId, // 只獲取比上次記錄更新的訊息
 						});
 
@@ -159,11 +160,14 @@ export default {
 						} else {
 							console.log(`[${feed.name}] Updated RssList table with last_message_id: ${latestMessageId}`);
 						}
+						const duration = performance.now() - start;
+						console.log(`[${feed.name}] Telegram 處理時間: ${duration.toFixed(2)}ms`);
 					} catch (telegramError) {
 						console.error(`[${feed.name}] Telegram error:`, telegramError);
 					} finally {
 						await client.disconnect();
 					}
+					*/
 				}
 			} catch (err) {
 				console.error(`[${feed.name}] Failed to process`, err);
