@@ -3,6 +3,8 @@ import { createClient } from '@supabase/supabase-js';
 import { sendMessageToTelegram, tagNews } from './utils';
 import { TelegramClient } from 'telegram';
 import { StringSession } from 'telegram/sessions';
+import { GoogleGenAI } from '@google/genai';
+import { ScheduledEvent, ExecutionContext } from '@cloudflare/workers-types';
 
 interface Env {
 	SUPABASE_URL: string;
@@ -12,7 +14,18 @@ interface Env {
 	TELEGRAM_API_ID: string;
 	TELEGRAM_API_HASH: string;
 	TELEGRAM_SESSION: string;
+	GEMINI_API_KEY: string;
 }
+
+const CommentByAI = async (title: string, summary: string, apiKey: string) => {
+	const genAI = new GoogleGenAI({ apiKey });
+	const response = await genAI.models.generateContent({
+		model: 'gemini-1.5-flash',
+		contents: `你是穿越時空的炒幣 degen 孫子兵法裡的孫武, 請用最多兩段文字盡可能簡潔的評論這則新聞: ${title} ${summary}`,
+	});
+	const text = response.text ?? '';
+	return text;
+};
 
 interface TelegramResponse {
 	ok: boolean;
@@ -34,7 +47,7 @@ async function processAndInsertArticle(supabase: any, env: Env, item: any, feed:
 		published_date: pubDate ? new Date(pubDate) : null,
 		scraped_date: new Date(),
 		categories,
-		tags: tags, // optional
+		tags: tags,
 		summary,
 		source_type: source_type,
 	};
@@ -44,7 +57,12 @@ async function processAndInsertArticle(supabase: any, env: Env, item: any, feed:
 	if (insertError) {
 		console.error(`[${feed.name}] Insert error:`, insertError);
 	} else {
-		await sendMessageToTelegram(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHAT_ID, `📰 ${feed.name}:${item.title || item.text}\n\n${url}`);
+		const aiCommentary = await CommentByAI(item.title || item.text, summary, env.GEMINI_API_KEY);
+		await sendMessageToTelegram(
+			env.TELEGRAM_BOT_TOKEN,
+			env.TELEGRAM_CHAT_ID,
+			`${aiCommentary}\n${feed.name}:${item.title || item.text}\n\n${url}`
+		);
 		console.log(`[${feed.name}] New article: ${item.title || item.text} tags ${JSON.stringify(tags)}`);
 	}
 }
