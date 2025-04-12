@@ -1,4 +1,5 @@
 import keyword_extractor from 'keyword-extractor';
+import * as cheerio from 'cheerio';
 
 export async function sendMessageToTelegram(token: string, chatId: string, message: string) {
 	const url = `https://api.telegram.org/bot${token}/sendMessage`;
@@ -112,4 +113,38 @@ export function tagNews(title: string): string[] {
 	// }
 
 	return Array.from(tags);
+}
+
+export async function scrapeArticleContent(url: string): Promise<string> {
+	try {
+		const response = await fetch(url);
+		if (!response.ok) {
+			console.error(`[Scraper] Failed to fetch ${url}: ${response.status} ${response.statusText}`);
+			return '';
+		}
+		const html = await response.text();
+		const $ = cheerio.load(html);
+
+		// Try common selectors for main article content
+		let content = '';
+		const selectors = ['article', '.article-content', '.post-content', '.entry-content', 'main', '#content', '#main', '.main-content'];
+
+		for (const selector of selectors) {
+			content = $(selector).text().trim();
+			if (content) {
+				break; // Found content, stop searching
+			}
+		}
+
+		// Basic cleanup (remove excessive whitespace)
+		if (content) {
+			content = content.replace(/\s\s+/g, ' ').trim();
+		}
+
+		console.log(`[Scraper] Scraped content from ${url} (length: ${content.length})`);
+		return content;
+	} catch (error) {
+		console.error(`[Scraper] Error scraping ${url}:`, error);
+		return '';
+	}
 }

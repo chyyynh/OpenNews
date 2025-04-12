@@ -1,6 +1,6 @@
 import { XMLParser } from 'fast-xml-parser';
 import { createClient } from '@supabase/supabase-js';
-import { sendMessageToTelegram, tagNews } from './utils';
+import { sendMessageToTelegram, tagNews, scrapeArticleContent } from './utils';
 import { TelegramClient } from 'telegram';
 import { StringSession } from 'telegram/sessions';
 import { GoogleGenAI } from '@google/genai';
@@ -40,6 +40,12 @@ async function processAndInsertArticle(supabase: any, env: Env, item: any, feed:
 	const tags = tagNews(item.title || item.text);
 	const url = item.link || `https://t.me/${feed.RSSLink}/${item.message_id}`;
 
+	// Scrape article content if it's an RSS feed item with a link
+	let crawled_content = '';
+	if (source_type === 'rss' && item.link) {
+		crawled_content = await scrapeArticleContent(item.link);
+	}
+
 	const insert = {
 		url: url,
 		title: item.title || item.text,
@@ -50,6 +56,7 @@ async function processAndInsertArticle(supabase: any, env: Env, item: any, feed:
 		tags: tags,
 		summary,
 		source_type: source_type,
+		crawled_content: crawled_content, // Add crawled content
 	};
 
 	const { error: insertError } = await supabase.from('articles').insert([insert]);
