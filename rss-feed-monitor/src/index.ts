@@ -56,7 +56,7 @@ async function processAndInsertArticle(supabase: any, env: Env, item: any, feed:
 		tags: tags,
 		summary,
 		source_type: source_type,
-		crawled_content: crawled_content, // Add crawled content
+		content: crawled_content, // Add crawled content
 	};
 
 	const { error: insertError } = await supabase.from('articles').insert([insert]);
