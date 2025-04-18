@@ -15,27 +15,35 @@ export default {
 	async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
 		const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 
-		// 获取当天文章
+		// Calculate time window: 90 to 180 minutes ago
 		const now = new Date();
-		const today = new Date().toISOString().split('T')[0];
-		const startOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-		const endOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
+		const ninetyMinutesAgo = new Date(now.getTime() - 90 * 60 * 1000);
+		const oneEightyMinutesAgo = new Date(now.getTime() - 180 * 60 * 1000);
+		const timeWindowIdentifier = `${oneEightyMinutesAgo.toISOString().substring(11, 16)} - ${ninetyMinutesAgo
+			.toISOString()
+			.substring(11, 16)} UTC`; // For logging/reporting
+
+		console.log(`Fetching articles between ${oneEightyMinutesAgo.toISOString()} and ${ninetyMinutesAgo.toISOString()}`);
 
 		const { data: articles, error } = await supabase
 			.from('articles')
 			.select('title, url, source, tags')
-			.gte('scraped_date', startOfDay.toISOString())
-			.lte('scraped_date', endOfDay.toISOString());
+			.gte('scraped_date', oneEightyMinutesAgo.toISOString()) // Greater than or equal to 180 mins ago
+			.lt('scraped_date', ninetyMinutesAgo.toISOString()); // Less than 90 mins ago
 
 		if (error) {
-			console.error('Error fetching articles:', error);
+			console.error(`Error fetching articles for window ${timeWindowIdentifier}:`, error);
 			return;
 		}
 
-		if (!articles.length) {
-			await sendMessageToTelegram(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHAT_ID, `📅 ${today} Crypto 新聞總結\n無新文章`);
+		if (!articles || !articles.length) {
+			console.log(`No new articles found for window ${timeWindowIdentifier}.`);
+			// Optionally send a message or just exit quietly
+			// await sendMessageToTelegram(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHAT_ID, `🔍 ${timeWindowIdentifier}: 無新文章`);
 			return;
 		}
+
+		console.log(`Found ${articles.length} articles for window ${timeWindowIdentifier}.`);
 
 		// 按類別整理
 		const categories: { [key: string]: any[] } = {};
@@ -45,28 +53,30 @@ export default {
 			categories[category].push(article);
 		});
 
-		// 生成報告
-		let report = `📅 ${today} Crypto 新聞總結\n\n`;
+		// 生成報告 (This raw report is now just input for the AI)
+		let reportInput = `Time Window: ${timeWindowIdentifier}\n\n`; // Changed variable name from report to reportInput
 		for (const [category, items] of Object.entries(categories)) {
-			report += `【${category}】\n`;
+			// Use the original categories variable
+			reportInput += `【${category}】\n`;
 			items.forEach((item) => {
 				const coins = item.tags?.coins?.join(', ') || '無';
-				report += `- ${item.source}: ${item.title} (幣種: ${coins})\n  ${item.url}\n`;
+				reportInput += `- ${item.source}: ${item.title} (幣種: ${coins})\n  ${item.url}\n`; // Changed variable name from report to reportInput
 			});
-			report += '\n'; // Keep the original report generation for input to AI
+			reportInput += '\n'; // Keep the original report generation for input to AI
 		}
 
 		// --- AI Summarization using Utility Function ---
 		try {
 			// The 'articles' data fetched from Supabase should match the ArticleForSummary interface
 			// defined in utils.ts because we selected title, url, source, and tags.
-			const summary = await summarizeWithGemini(env.GEMINI_API_KEY, articles);
+			// Pass the articles and the desired style to the summarizer
+			const summary = await summarizeWithGemini(env.GEMINI_API_KEY, articles, 'Sun Tzu'); // Pass 'Sun Tzu' style
 
-			// Prepend the date header to the AI summary
-			const finalReport = `📅 ${today} Crypto 新聞 AI 摘要\n\n${summary}`; // summary is already truncated in the util if needed
+			// Format the final report with the new style
+			const finalReport = `[summary] ${timeWindowIdentifier}\n\n${summary}`; // Use new header and style
 
 			// --- Send AI Summary ---
-			console.log('Sending AI summary to Telegram...');
+			console.log(`Sending Sun Tzu summary for ${timeWindowIdentifier} to Telegram...`);
 			await sendMessageToTelegram(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHAT_ID, finalReport);
 			console.log('AI Daily report sent successfully');
 		} catch (aiError) {
@@ -78,7 +88,7 @@ export default {
 			} else if (typeof aiError === 'string') {
 				errorMessage = aiError;
 			}
-			await sendMessageToTelegram(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHAT_ID, `📅 ${today} AI 摘要生成失敗: ${errorMessage}`);
+			await sendMessageToTelegram(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHAT_ID, `兵法推演失策 (${timeWindowIdentifier}): ${errorMessage}`);
 		}
 	},
 };
