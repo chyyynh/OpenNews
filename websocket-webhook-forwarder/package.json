@@ -6,7 +6,8 @@
   "scripts": {
     "build": "tsc",
     "start": "ts-node src/index.ts",
-    "dev": "ts-node src/index.ts"
+    "dev": "ts-node src/index.ts",
+    "test": "ts-node src/send-test-webhook.ts"
   },
   "keywords": [
     "websocket",
@@ -18,12 +19,13 @@
   "license": "ISC",
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "@types/node-fetch": "^2.6.12",
     "@types/ws": "^8.5.10",
     "ts-node": "^10.9.2",
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "ws": "^8.17.1",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "ws": "^8.17.1"
   }
 }

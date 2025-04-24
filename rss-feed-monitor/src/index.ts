@@ -37,8 +37,8 @@ async function processAndInsertArticle(supabase: any, env: Env, item: any, feed?
 	const pubDate = item.pubDate || item.isoDate || null;
 	const summary = item.description || item['content:encoded'] || item.text || '';
 	const categories = item.category ? (Array.isArray(item.category) ? item.category : [item.category]) : [];
-	const tags = tagNews(item.title || item.text);
-	const url = item.link || `https://t.me/${feed.RSSLink}/${item.message_id}`;
+	const tags = tagNews(item.title || item.text || item.news_title);
+	const url = item.link || item.url || `https://t.me/${feed.RSSLink}/${item.message_id}`;
 
 	// Scrape article content if it's an RSS feed item with a link
 	let crawled_content = '';
@@ -48,14 +48,14 @@ async function processAndInsertArticle(supabase: any, env: Env, item: any, feed?
 
 	const insert = {
 		url: url,
-		title: item.title || item.text,
-		source: feed.name,
-		published_date: pubDate ? new Date(pubDate) : null,
+		title: item.title || item.text || item.news_title || 'No Title',
+		source: feed.name || item.source_name || 'Unknown',
+		published_date: new Date(pubDate) || new Date(),
 		scraped_date: new Date(),
 		categories,
-		tags: tags,
+		tags: item.coins_included || tags,
 		summary,
-		source_type: source_type || `wsocket`,
+		source_type: source_type || `websocket`,
 		content: crawled_content,
 	};
 
@@ -68,7 +68,7 @@ async function processAndInsertArticle(supabase: any, env: Env, item: any, feed?
 		await sendMessageToTelegram(
 			env.TELEGRAM_BOT_TOKEN,
 			env.TELEGRAM_CHAT_ID,
-			`${aiCommentary}\n${feed.name}:${item.title || item.text}\n\n${url}`
+			`${aiCommentary}\n${feed.name}:${item.title || item.text || item.news_title}\n\n${url}`
 		);
 		console.log(`[${feed.name}] New article: ${item.title || item.text} tags ${JSON.stringify(tags)}`);
 	}
