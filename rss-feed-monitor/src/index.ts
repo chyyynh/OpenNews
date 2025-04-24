@@ -33,7 +33,7 @@ interface TelegramResponse {
 	description?: string;
 }
 
-async function processAndInsertArticle(supabase: any, env: Env, item: any, feed: any, source_type: string) {
+async function processAndInsertArticle(supabase: any, env: Env, item: any, feed?: any, source_type?: string) {
 	const pubDate = item.pubDate || item.isoDate || null;
 	const summary = item.description || item['content:encoded'] || item.text || '';
 	const categories = item.category ? (Array.isArray(item.category) ? item.category : [item.category]) : [];
@@ -55,8 +55,8 @@ async function processAndInsertArticle(supabase: any, env: Env, item: any, feed:
 		categories,
 		tags: tags,
 		summary,
-		source_type: source_type,
-		content: crawled_content, // Add crawled content
+		source_type: source_type || `wsocket`,
+		content: crawled_content,
 	};
 
 	const { error: insertError } = await supabase.from('articles').insert([insert]);
@@ -198,5 +198,76 @@ export default {
 				console.error(`[${feed.name}] Failed to process`, err);
 			}
 		}
+	},
+	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+		const url = new URL(request.url);
+
+		// --- Webhook 端點 ---
+		if (url.pathname === '/webhook' && request.method === 'POST') {
+			console.log('Webhook request received');
+
+			//可選：安全檢查 - 驗證 Secret
+			/* 
+            if (env.WEBHOOK_SECRET) {
+                const incomingSecret = request.headers.get('X-Webhook-Secret'); // 或其他 header
+                if (incomingSecret !== env.WEBHOOK_SECRET) {
+                    console.warn("Webhook authentication failed: Invalid secret.");
+                    return new Response('Unauthorized', { status: 401 });
+                }
+            }
+			*/
+
+			try {
+				// 解析請求 body 中的 JSON 數據
+				const message: any = await request.json(); // 假設 WS Client 發送的是 JSON
+
+				// 驗證消息內容 (基本檢查)
+				if (!message || typeof message !== 'object') {
+					console.warn('Webhook received invalid data format.');
+					return new Response('Bad Request: Invalid JSON payload', { status: 400 });
+				}
+
+				console.log('Webhook payload parsed:', message);
+
+				// 初始化 Supabase Client 在高並發下，每次請求都創建客戶端可能效率不高，但對於 Worker 來說是標準做法
+				const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+
+				// 使用 ctx.waitUntil 允許數據庫插入和後續處理在響應發送後進行 這樣可以快速響應 Webhook 調用者
+				ctx.waitUntil(
+					processAndInsertArticle(supabase, env, message, {
+						name: message.source_name || 'WebSocket Source', // 嘗試從消息中獲取來源名稱
+						type: 'websocket', // 指定來源類型
+						link: message.url || 'WebSocket Source', // 如果消息中有 link 字段，可以傳遞
+					})
+				);
+
+				// 立即返回成功響應給 Webhook 調用者 (Node.js client) 202 Accepted 表示請求已被接受處理，但不保證處理已完成
+				return new Response(JSON.stringify({ status: 'received', message: 'Message queued for processing.' }), {
+					status: 202,
+					headers: { 'Content-Type': 'application/json' },
+				});
+			} catch (error: any) {
+				if (error instanceof SyntaxError) {
+					// JSON 解析錯誤
+					console.error('Webhook JSON parsing error:', error);
+					return new Response('Bad Request: Could not parse JSON.', { status: 400 });
+				}
+				// 其他處理錯誤
+				console.error('Webhook processing error:', error);
+				return new Response('Internal Server Error', { status: 500 });
+			}
+		}
+
+		// --- 根路徑或其他路徑的處理 (可選) ---
+		if (url.pathname === '/' && request.method === 'GET') {
+			return new Response('Cloudflare Worker is running. Scheduled tasks active. Webhook endpoint available at /webhook (POST).', {
+				status: 200,
+				headers: { 'Content-Type': 'text/plain' },
+			});
+		}
+
+		// --- 對於未匹配的路由返回 404 ---
+		console.log(`Request not found: ${request.method} ${url.pathname}`);
+		return new Response('Not Found', { status: 404 });
 	},
 };
