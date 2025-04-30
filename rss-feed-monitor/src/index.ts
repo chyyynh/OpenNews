@@ -37,7 +37,7 @@ async function processAndInsertArticle(supabase: any, env: Env, item: any, feed?
 	const pubDate = item.pubDate || item.isoDate || null;
 	const summary = item.description || item['content:encoded'] || item.text || '';
 	const categories = item.category ? (Array.isArray(item.category) ? item.category : [item.category]) : [];
-	const tags = tagNews(item.title || item.text || item.news_title);
+	const tags = await tagNews(item.title || item.text || item.news_title);
 	const url = item.link || item.url || `https://t.me/${feed.RSSLink}/${item.message_id}`;
 
 	// Scrape article content if it's an RSS feed item with a link
