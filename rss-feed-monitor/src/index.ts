@@ -1,8 +1,6 @@
 import { XMLParser } from 'fast-xml-parser';
 import { createClient } from '@supabase/supabase-js';
 import { sendMessageToTelegram, tagNews, scrapeArticleContent } from './utils';
-import { TelegramClient } from 'telegram';
-import { StringSession } from 'telegram/sessions';
 import { GoogleGenAI } from '@google/genai';
 import { ScheduledEvent, ExecutionContext } from '@cloudflare/workers-types';
 
@@ -15,22 +13,6 @@ interface Env {
 	TELEGRAM_API_HASH: string;
 	TELEGRAM_SESSION: string;
 	GEMINI_API_KEY: string;
-}
-
-const CommentByAI = async (title: string, summary: string, apiKey: string) => {
-	const genAI = new GoogleGenAI({ apiKey });
-	const response = await genAI.models.generateContent({
-		model: 'gemini-1.5-flash',
-		contents: `你是穿越時空的炒幣 degen 孫子兵法裡的孫武, 請用最多兩段文字盡可能簡潔的評論這則新聞: ${title} ${summary}`,
-	});
-	const text = response.text ?? '';
-	return text;
-};
-
-interface TelegramResponse {
-	ok: boolean;
-	result: any[];
-	description?: string;
 }
 
 async function processAndInsertArticle(supabase: any, env: Env, item: any, feed?: any, source_type?: string) {
@@ -64,11 +46,10 @@ async function processAndInsertArticle(supabase: any, env: Env, item: any, feed?
 	if (insertError) {
 		console.error(`[${feed.name}] Insert error:`, insertError);
 	} else {
-		const aiCommentary = await CommentByAI(item.title || item.text, summary, env.GEMINI_API_KEY);
 		await sendMessageToTelegram(
 			env.TELEGRAM_BOT_TOKEN,
 			env.TELEGRAM_CHAT_ID,
-			`${aiCommentary}\n${feed.name}:${item.title || item.text || item.news_title}\n\n${url}`
+			`${feed.name}:${item.title || item.text || item.news_title}\n\n${url}`
 		);
 		console.log(`[${feed.name}] New article: ${item.title || item.text} tags ${JSON.stringify(tags)}`);
 	}
@@ -82,17 +63,16 @@ export default {
 		// Fetch all feeds from the RssList table, including the type
 		const { data: RSSList, error: fetchRssListError } = await supabase.from('RssList').select('id, name, RSSLink, url, type');
 
-		console.log('Fetched RSS feeds:', RSSList);
-
 		if (fetchRssListError) {
 			console.error('Error fetching RSS feeds from RssList:', fetchRssListError);
 			return;
+		} else {
+			console.log('Fetched RSS feeds:', RSSList);
 		}
 
-		// Loop through each feed in the RssList table
-		for (const feed of RSSList) {
-			console.log(`Processing feed: ${feed.name} (${feed.RSSLink}) type:${feed.type}`);
+		const feedTasks = RSSList.map(async (feed) => {
 			try {
+				console.log(`Processing feed: ${feed.name}`);
 				if (feed.type === 'rss') {
 					const res = await fetch(feed.RSSLink);
 					const xml = await res.text();
@@ -101,7 +81,7 @@ export default {
 					const items = data?.rss?.channel?.item;
 					if (!items || !Array.isArray(items)) {
 						console.error(`[${feed.name}] Invalid format`);
-						continue;
+						return;
 					}
 
 					const urls = items.map((item: any) => item.link);
@@ -109,100 +89,36 @@ export default {
 
 					if (fetchError) {
 						console.error(`[${feed.name}] Fetch error`, fetchError);
-						continue;
+						return;
 					}
 
 					const existingUrls = new Set(existing.map((e: any) => e.url));
 					const newItems = items.filter((item: any) => !existingUrls.has(item.link));
 
-					for (const item of newItems) {
-						await processAndInsertArticle(supabase, env, item, feed, 'rss');
-					}
+					await Promise.allSettled(newItems.map((item: any) => processAndInsertArticle(supabase, env, item, feed, 'rss')));
 
-					// Update the RssList table with the latest scrape time and RSSLink
-					const { error: updateError } = await supabase
+					await supabase
 						.from('RssList')
 						.update({
 							scraped_at: new Date(),
-							url: feed.url, // Store the URL as the processed link
+							url: feed.url,
 						})
 						.eq('id', feed.id);
 
-					if (updateError) {
-						console.error(`[${feed.name}] Failed to update RssList:`, updateError);
-					} else {
-						console.log(`[${feed.name}] Updated RssList table`);
-					}
-				} else if (feed.type === 'telegram') {
-					// should edit this part to cloudflare queue, check https://developers.cloudflare.com/queues/
-					/*
-					const start = performance.now();
-					const apiId = parseInt(env.TELEGRAM_API_ID);
-					const apiHash = env.TELEGRAM_API_HASH;
-					const sessionString = env.TELEGRAM_SESSION;
-
-					const client = new TelegramClient(new StringSession(sessionString), apiId, apiHash, { connectionRetries: 5 });
-
-					try {
-						await client.connect();
-						// 從 url 欄位獲取 last_message_id，若無則設為 0
-						const lastMessageId = feed.url ? parseInt(feed.url) || 0 : 0;
-						// 獲取比 lastMessageId 更新的訊息
-						const messages = await client.getMessages(feed.RSSLink, {
-							limit: 5, // 設置一個合理上限
-							minId: lastMessageId, // 只獲取比上次記錄更新的訊息
-						});
-
-						if (messages.length === 0) {
-							console.log(`[${feed.name}] No new messages since last check (last_message_id: ${lastMessageId})`);
-						}
-
-						let latestMessageId = lastMessageId;
-						for (const msg of messages) {
-							if (msg.text) {
-								const telegramItem = {
-									message_id: msg.id,
-									text: msg.text,
-									pubDate: new Date(msg.date * 1000).toISOString(),
-								};
-								await processAndInsertArticle(supabase, env, telegramItem, feed, 'telegram');
-								// 更新最新訊息 ID
-								latestMessageId = Math.max(latestMessageId, msg.id);
-							}
-						}
-
-						// 更新 RssList 表中的 url（作為 last_message_id）和 scraped_at
-						const { error: updateError } = await supabase
-							.from('RssList')
-							.update({
-								scraped_at: new Date(),
-								url: latestMessageId.toString(), // 將整數轉為字串存入 url
-							})
-							.eq('id', feed.id);
-
-						if (updateError) {
-							console.error(`[${feed.name}] Failed to update RssList:`, updateError);
-						} else {
-							console.log(`[${feed.name}] Updated RssList table with last_message_id: ${latestMessageId}`);
-						}
-						const duration = performance.now() - start;
-						console.log(`[${feed.name}] Telegram 處理時間: ${duration.toFixed(2)}ms`);
-					} catch (telegramError) {
-						console.error(`[${feed.name}] Telegram error:`, telegramError);
-					} finally {
-						await client.disconnect();
-					}
-					*/
+					console.log(`[${feed.name}] Done.`);
 				}
+				// 其他 feed.type 處理略
 			} catch (err) {
 				console.error(`[${feed.name}] Failed to process`, err);
 			}
-		}
+		});
+
+		await Promise.allSettled(feedTasks);
 	},
+	// Webhook 端點 這裡的 fetch 方法會處理來自 WebSocket 客戶端的請求
 	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
 		const url = new URL(request.url);
 
-		// --- Webhook 端點 ---
 		if (url.pathname === '/webhook' && request.method === 'POST') {
 			console.log('Webhook request received');
 
@@ -257,15 +173,6 @@ export default {
 				return new Response('Internal Server Error', { status: 500 });
 			}
 		}
-
-		// --- 根路徑或其他路徑的處理 (可選) ---
-		if (url.pathname === '/' && request.method === 'GET') {
-			return new Response('Cloudflare Worker is running. Scheduled tasks active. Webhook endpoint available at /webhook (POST).', {
-				status: 200,
-				headers: { 'Content-Type': 'text/plain' },
-			});
-		}
-
 		// --- 對於未匹配的路由返回 404 ---
 		console.log(`Request not found: ${request.method} ${url.pathname}`);
 		return new Response('Not Found', { status: 404 });
