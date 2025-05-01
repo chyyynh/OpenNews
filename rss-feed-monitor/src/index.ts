@@ -1,8 +1,8 @@
 import { XMLParser } from 'fast-xml-parser';
 import { createClient } from '@supabase/supabase-js';
 import { sendMessageToTelegram, tagNews, scrapeArticleContent } from './utils';
-import { GoogleGenAI } from '@google/genai';
 import { ScheduledEvent, ExecutionContext } from '@cloudflare/workers-types';
+import { GoogleGenAI } from '@google/genai';
 
 interface Env {
 	SUPABASE_URL: string;
@@ -46,14 +46,25 @@ async function processAndInsertArticle(supabase: any, env: Env, item: any, feed?
 	if (insertError) {
 		console.error(`[${feed.name}] Insert error:`, insertError);
 	} else {
+		const aiCommentary = await CommentByAI(item.title || item.text, summary, env.GEMINI_API_KEY);
 		await sendMessageToTelegram(
 			env.TELEGRAM_BOT_TOKEN,
 			env.TELEGRAM_CHAT_ID,
-			`${feed.name}:${item.title || item.text || item.news_title}\n\n${url}`
+			`${aiCommentary}\n${feed.name}:${item.title || item.text || item.news_title}\n\n${url}`
 		);
 		console.log(`[${feed.name}] New article: ${item.title || item.text} tags ${JSON.stringify(tags)}`);
 	}
 }
+
+const CommentByAI = async (title: string, summary: string, apiKey: string) => {
+	const genAI = new GoogleGenAI({ apiKey });
+	const response = await genAI.models.generateContent({
+		model: 'gemini-1.5-flash',
+		contents: `你是穿越時空的炒幣 degen 孫子兵法裡的孫武, 請用最多兩段文字盡可能簡潔的評論這則新聞: ${title} ${summary}`,
+	});
+	const text = response.text ?? '';
+	return text;
+};
 
 export default {
 	async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
