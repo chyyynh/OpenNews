@@ -1,6 +1,14 @@
 import keyword_extractor from 'keyword-extractor';
 import * as axios from 'axios';
 import * as cheerio from 'cheerio';
+import { TelegramClient } from 'telegram';
+import { StringSession } from 'telegram/sessions';
+
+interface TelegramResponse {
+	ok: boolean;
+	result: any[];
+	description?: string;
+}
 
 export async function sendMessageToTelegram(token: string, chatId: string, message: string) {
 	const url = `https://api.telegram.org/bot${token}/sendMessage`;
@@ -26,7 +34,7 @@ export async function sendMessageToTelegram(token: string, chatId: string, messa
 	}
 }
 
-export function tagNews(title: string): string[] {
+export async function tagNews(title: string): Promise<string[]> {
 	const text = title.toLowerCase();
 	const tags = new Set<string>(); // Use Set to avoid duplicate tags
 
@@ -188,3 +196,65 @@ export async function scrapeArticleContent(url: string): Promise<string> {
 		return '';
 	}
 }
+
+// Telegram 監控
+/*
+export async function monitorTgMsg(feed: string) {
+	const start = performance.now();
+	const apiId = parseInt(env.TELEGRAM_API_ID);
+	const apiHash = env.TELEGRAM_API_HASH;
+	const sessionString = env.TELEGRAM_SESSION;
+
+	const client = new TelegramClient(new StringSession(sessionString), apiId, apiHash, { connectionRetries: 5 });
+
+	try {
+		await client.connect();
+		// 從 url 欄位獲取 last_message_id，若無則設為 0
+		const lastMessageId = feed.url ? parseInt(feed.url) || 0 : 0;
+		// 獲取比 lastMessageId 更新的訊息
+		const messages = await client.getMessages(feed.RSSLink, {
+			limit: 5, // 設置一個合理上限
+			minId: lastMessageId, // 只獲取比上次記錄更新的訊息
+		});
+
+		if (messages.length === 0) {
+			console.log(`[${feed.name}] No new messages since last check (last_message_id: ${lastMessageId})`);
+		}
+
+		let latestMessageId = lastMessageId;
+		for (const msg of messages) {
+			if (msg.text) {
+				const telegramItem = {
+					message_id: msg.id,
+					text: msg.text,
+					pubDate: new Date(msg.date * 1000).toISOString(),
+				};
+				await processAndInsertArticle(supabase, env, telegramItem, feed, 'telegram');
+				// 更新最新訊息 ID
+				latestMessageId = Math.max(latestMessageId, msg.id);
+			}
+		}
+
+		// 更新 RssList 表中的 url（作為 last_message_id）和 scraped_at
+		const { error: updateError } = await supabase
+			.from('RssList')
+			.update({
+				scraped_at: new Date(),
+				url: latestMessageId.toString(), // 將整數轉為字串存入 url
+			})
+			.eq('id', feed.id);
+
+		if (updateError) {
+			console.error(`[${feed.name}] Failed to update RssList:`, updateError);
+		} else {
+			console.log(`[${feed.name}] Updated RssList table with last_message_id: ${latestMessageId}`);
+		}
+		const duration = performance.now() - start;
+		console.log(`[${feed.name}] Telegram 處理時間: ${duration.toFixed(2)}ms`);
+	} catch (telegramError) {
+		console.error(`[${feed.name}] Telegram error:`, telegramError);
+	} finally {
+		await client.disconnect();
+	}
+}
+	*/
