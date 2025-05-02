@@ -1,6 +1,7 @@
-import { createClient, PostgrestError } from "@supabase/supabase-js"; // Import PostgrestError
+import { createClient, PostgrestError } from "@supabase/supabase-js";
 import Link from "next/link";
 import { use } from "react";
+import { Button } from "@/components/ui/button"; // Import Button
 
 interface ArticleItem {
   id: number;
@@ -149,34 +150,40 @@ export default function Home(props: { searchParams: Promise<SearchParams> }) {
         </main>
 
         {/* Right Column (Tag Filters) */}
+        {/* Right Column (Tag Filters) */}
         <aside className="md:col-span-1 border-l md:pl-6">
           <h2 className="text-xl font-semibold mb-4">Filter by Tag</h2>
-          {/* Consider adding error handling for tags fetch if needed */}
-          <ul className="space-y-2">
-            <li>
-              <Link
-                href="/"
-                className={`block hover:underline ${
-                  !selectedTag ? "font-bold" : ""
-                }`}
+          <div className="flex flex-wrap gap-2">
+            {" "}
+            {/* Use flex-wrap for wrapping */}
+            <Link href="/" passHref>
+              <Button
+                variant={!selectedTag ? "default" : "outline"}
+                size="sm"
+                className="rounded-full" // Make buttons rounded
               >
                 All Tags
-              </Link>
-            </li>
+              </Button>
+            </Link>
             {tags.map((tag) => (
-              <li key={tag}>
-                <Link
-                  href={`/?tag=${encodeURIComponent(tag)}`}
-                  className={`block hover:underline ${
-                    selectedTag === tag ? "font-bold" : ""
-                  }`}
+              <Link
+                href={`/?tag=${encodeURIComponent(tag)}`}
+                key={tag}
+                passHref
+              >
+                <Button
+                  variant={selectedTag === tag ? "default" : "outline"}
+                  size="sm"
+                  className="rounded-full" // Make buttons rounded
                 >
                   {tag}
-                </Link>
-              </li>
+                </Button>
+              </Link>
             ))}
-            {tags.length === 0 && !fetchError && <li>No tags found.</li>}
-          </ul>
+            {tags.length === 0 && !fetchError && (
+              <p className="text-sm text-gray-500">No tags found.</p>
+            )}
+          </div>
         </aside>
       </div>
 
