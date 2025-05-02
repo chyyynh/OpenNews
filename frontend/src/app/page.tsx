@@ -1,13 +1,12 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, PostgrestError } from "@supabase/supabase-js"; // Import PostgrestError
 import Link from "next/link";
+import { use } from "react";
 
-// Define the type for an article item
 interface ArticleItem {
-  // Renamed from NewsItem
   id: number;
   title: string;
   url: string;
-  published_date: string; // Changed from created_at
+  published_date: string;
   tags: string[];
 }
 
@@ -16,75 +15,79 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error(
+  // Throw an error during build/startup if env vars are missing in Server Components
+  throw new Error(
     "Supabase URL or Anon Key is missing. Make sure they are set in your environment variables."
   );
-  // Handle missing env vars appropriately
 }
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Function to fetch distinct tags from the tags array column
+// Make the function async and await the result
 async function getTags(): Promise<string[]> {
-  // Fetch all rows and their tags arrays. This might be inefficient for very large tables.
-  // Consider creating a separate table or view for tags if performance becomes an issue.
   const { data, error } = await supabase
-    .from("articles") // Changed from "news"
-    .select("tags") // Select the tags array column
-    .limit(2000); // Adjust limit as needed, fetching more rows to get diverse tags
+    .from("articles")
+    .select("tags")
+    .limit(2000);
 
   if (error) {
     console.error("Error fetching tags:", error);
-    return [];
+    throw error; // Throw error to be caught by Error Boundary or use()
   }
 
-  // Flatten all tags arrays, filter out null/empty tags, get unique values
   const allTags = data
     ? data.flatMap((item: { tags: string[] | null }) => item.tags || [])
     : [];
   const uniqueTags = [...new Set(allTags.filter(Boolean))];
-  return uniqueTags.sort(); // Sort tags alphabetically
+  return uniqueTags.sort(); // Return the data directly
 }
 
-// Page component now accepts searchParams for 'tag'
-export default async function Home({
-  searchParams,
-}: {
-  searchParams?: { [key: string]: string | string[] | undefined };
-}) {
-  // Read 'tag' from searchParams instead of 'topic'
-  const selectedTag =
-    typeof searchParams?.tag === "string" ? searchParams.tag : null;
-
-  // Fetch article data from Supabase, potentially filtered by tag
-  let articles: ArticleItem[] | null = null; // Renamed from news, updated type
-  let fetchError: any = null;
+// Make the function async and await the result
+async function getArticles(
+  selectedTag: string | null
+): Promise<
+  | { articles: ArticleItem[]; error: null }
+  | { articles: []; error: PostgrestError }
+> {
+  // Return type indicates either success or error state clearly
   let query = supabase
-    .from("articles") // Changed from "news"
-    .select("id, title, url, published_date, tags") // Changed created_at to published_date
-    .order("published_date", { ascending: false }); // Changed created_at to published_date
+    .from("articles")
+    .select("id, title, url, published_date, tags")
+    .order("published_date", { ascending: false });
 
-  // Apply tag filter if selected using array contains operator '@>'
   if (selectedTag) {
-    // Use contains operator for array filtering
     query = query.contains("tags", [selectedTag]);
   }
 
-  query = query.limit(20); // Limit the number of items fetched
+  query = query.limit(20);
 
-  try {
-    const { data, error } = await query;
-    if (error) {
-      throw error;
-    }
-    articles = data; // Renamed from news
-  } catch (error) {
-    console.error("Error fetching articles:", error); // Updated log message
-    fetchError = error;
+  const { data, error } = await query;
+
+  if (error) {
+    console.error("Error fetching articles:", error);
+    // Return an object indicating error, don't throw here if handling in component
+    return { articles: [], error };
   }
 
-  // Fetch unique tags for the filter list
-  const tags = await getTags();
+  // Return the data directly on success
+  return { articles: (data as ArticleItem[]) || [], error: null };
+}
+
+// Define the type for searchParams if using the Promise pattern
+type SearchParams = { [key: string]: string | string[] | undefined };
+
+// Page component is now synchronous (no 'async' keyword)
+export default function Home(props: { searchParams: Promise<SearchParams> }) {
+  // Resolve searchParams promise
+  const searchParams = use(props.searchParams);
+  const selectedTag =
+    typeof searchParams?.tag === "string" ? searchParams.tag : null;
+
+  // Resolve data fetching promises using the async functions
+  // Note: Error handling for use() typically involves Error Boundaries
+  // Consider wrapping parts of the component in <Suspense> if needed
+  const tags = use(getTags()); // Call the async function directly
+  const { articles, error: fetchError } = use(getArticles(selectedTag)); // Call the async function
 
   return (
     <div className="container mx-auto p-4 sm:p-8 font-[family-name:var(--font-geist-sans)]">
@@ -95,54 +98,50 @@ export default async function Home({
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        {/* Left Column (News List) */}
+        {/* Left Column (Articles List) */}
         <main className="md:col-span-2 flex flex-col gap-4">
+          {/* Display error if fetchError occurred */}
           {fetchError && (
             <p className="text-red-500">
-              Could not fetch articles. Error: // Updated message
+              Could not fetch articles. Error:{" "}
               {fetchError.message || "Unknown error"}
             </p>
           )}
-          {!fetchError && articles && articles.length > 0 ? ( // Renamed news to articles
+          {/* Display articles if no error and articles exist */}
+          {!fetchError && articles && articles.length > 0 ? (
             <ul className="space-y-4">
-              {articles.map(
-                (
-                  item: ArticleItem // Renamed news to articles, updated type
-                ) => (
-                  <li
-                    key={item.id}
-                    className="border rounded-lg p-4 shadow hover:shadow-md transition-shadow"
+              {articles.map((item: ArticleItem) => (
+                <li
+                  key={item.id}
+                  className="border rounded-lg p-4 shadow hover:shadow-md transition-shadow"
+                >
+                  <a
+                    href={item.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:underline"
                   >
-                    <a
-                      href={item.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="hover:underline"
-                    >
-                      <h2 className="text-xl font-semibold mb-1">
-                        {item.title}
-                      </h2>
-                    </a>
-                    <div className="text-sm text-gray-500 mt-1">
-                      <span>
-                        Published:{" "}
-                        {new Date(item.published_date).toLocaleDateString()}{" "}
-                        {/* Changed created_at to published_date */}
+                    <h2 className="text-xl font-semibold mb-1">{item.title}</h2>
+                  </a>
+                  <div className="text-sm text-gray-500 mt-1">
+                    <span>
+                      Published:{" "}
+                      {new Date(item.published_date).toLocaleDateString()}
+                    </span>
+                    {item.tags && item.tags.length > 0 && (
+                      <span className="ml-2">
+                        | Tags: {item.tags.join(", ")}
                       </span>
-                      {item.tags && item.tags.length > 0 && (
-                        <span className="ml-2">
-                          | Tags: {item.tags.join(", ")}
-                        </span>
-                      )}
-                    </div>
-                  </li>
-                )
-              )}
+                    )}
+                  </div>
+                </li>
+              ))}
             </ul>
           ) : (
+            // Display message if no articles found and no error
             !fetchError && (
               <p>
-                No articles found {/* Updated message */}
+                No articles found{" "}
                 {selectedTag ? ` for tag "${selectedTag}"` : ""}.
               </p>
             )
@@ -152,6 +151,7 @@ export default async function Home({
         {/* Right Column (Tag Filters) */}
         <aside className="md:col-span-1 border-l md:pl-6">
           <h2 className="text-xl font-semibold mb-4">Filter by Tag</h2>
+          {/* Consider adding error handling for tags fetch if needed */}
           <ul className="space-y-2">
             <li>
               <Link
@@ -165,7 +165,6 @@ export default async function Home({
             </li>
             {tags.map((tag) => (
               <li key={tag}>
-                {/* Update link to use ?tag= */}
                 <Link
                   href={`/?tag=${encodeURIComponent(tag)}`}
                   className={`block hover:underline ${
