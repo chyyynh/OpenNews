@@ -17,6 +17,12 @@ importers:
       fast-xml-parser:
         specifier: ^5.2.0
         version: 5.2.0
+      twitter-api-v2:
+        specifier: ^1.22.0
+        version: 1.22.0
+      twitter.js:
+        specifier: ^0.14.0
+        version: 0.14.0
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^4.20250405.0
@@ -79,6 +85,11 @@ packages:
   '@cspotcode/source-map-support@0.8.1':
     resolution: {integrity: sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==}
     engines: {node: '>=12'}
+
+  '@discordjs/collection@0.5.0':
+    resolution: {integrity: sha512-3Vr3y4/Kl6ThOsD/cbXkK4JmjawQahbM3ojHpD6XyTEOG4fwZFMYH/NTWKFd5WZUw38iQsvGC4Kt4VkL++1hFQ==}
+    engines: {node: '>=16.9.0'}
+    deprecated: no longer supported
 
   '@emnapi/runtime@1.4.0':
     resolution: {integrity: sha512-64WYIf4UYcdLnbKn/umDlNjQDSS8AgZrI/R9+x5ilkUVFxXcA1Ebl+gQLc/6mERA4407Xof0R7wEyEuj091CVw==}
@@ -356,6 +367,10 @@ packages:
   '@jridgewell/trace-mapping@0.3.9':
     resolution: {integrity: sha512-3Belt6tdc8bPgAtbcmdtNJlirVoTmEb5e2gC94PnkwEW9jI6CAHUeoG85tjWP5WquqfavoMtMwiG4P926ZKKuQ==}
 
+  '@sapphire/async-queue@1.5.5':
+    resolution: {integrity: sha512-cvGzxbba6sav2zZkH8GPf2oGk9yYoD5qrNWdu9fRehifgnFZJMV+nuy2nON2roRO4yQQ+v7MK/Pktl/HgfsUXg==}
+    engines: {node: '>=v14.0.0', npm: '>=7.0.0'}
+
   '@supabase/auth-js@2.69.1':
     resolution: {integrity: sha512-FILtt5WjCNzmReeRLq5wRs3iShwmnWgBvxHfqapC/VoljJl+W8hDAyFmf1NVw3zH+ZjZ05AKxiKxVeb0HNWRMQ==}
 
@@ -474,6 +489,9 @@ packages:
     resolution: {integrity: sha512-71ippSywq5Yb7/tVYyGbkBggbU8H3u5Rz56fH60jGFgr8uHwxs+aSKeqmluIVzM0m0kB7xQjKS6qPfd0b2ZoqQ==}
     hasBin: true
 
+  oauth-1.0a@2.2.6:
+    resolution: {integrity: sha512-6bkxv3N4Gu5lty4viIcIAnq5GbxECviMBeKR3WX/q87SPQ8E8aursPZUtsXDnxCs787af09WPRBLqYrf/lwoYQ==}
+
   ohash@2.0.11:
     resolution: {integrity: sha512-RdR9FQrFwNBNXAr4GixM8YaRZRJ5PUWbKYbE5eOsrwAjJW0q2REGcf79oYPsLyskQCZG1PLN+S/K1V00joZAoQ==}
 
@@ -517,6 +535,16 @@ packages:
 
   tslib@2.8.1:
     resolution: {integrity: sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==}
+
+  twitter-api-v2@1.22.0:
+    resolution: {integrity: sha512-KlcRL9vcBzjeS/PwxX33NziP+SHp9n35DOclKtpOmnNes7nNVnK7WG4pKlHfBqGrY5kAz/8J5ERS8DWkYOaiWw==}
+
+  twitter-types@0.26.0:
+    resolution: {integrity: sha512-wX1oH8vVAorLyomOOyScUBPy+zVlOzoUSDVYeC3Gc+IZ85/k+sq37ioe2srmcbBQcweiuqthk2BUbgOUa9suWA==}
+
+  twitter.js@0.14.0:
+    resolution: {integrity: sha512-J49mApXj0dY2iN6Y3ETt7s6HdEH7q57NfCkxMsP3I9CokMlaZk9QOrIdNhtmKHI5BV5iH7RPsKga/S9b92Xmew==}
+    engines: {node: '>=16.0.0', npm: '>=7.0.0'}
 
   typescript@5.8.3:
     resolution: {integrity: sha512-p1diW6TqL9L07nNxvRMM7hMMw4c5XOo/1ibL4aAIGmSAt9slTE1Xgw5KWuof2uTOvCg9BY7ZRi+GaF+7sfgPeQ==}
@@ -607,6 +635,8 @@ snapshots:
   '@cspotcode/source-map-support@0.8.1':
     dependencies:
       '@jridgewell/trace-mapping': 0.3.9
+
+  '@discordjs/collection@0.5.0': {}
 
   '@emnapi/runtime@1.4.0':
     dependencies:
@@ -776,6 +806,8 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.0
 
+  '@sapphire/async-queue@1.5.5': {}
+
   '@supabase/auth-js@2.69.1':
     dependencies:
       '@supabase/node-fetch': 2.6.15
@@ -937,6 +969,8 @@ snapshots:
 
   mustache@4.2.0: {}
 
+  oauth-1.0a@2.2.6: {}
+
   ohash@2.0.11: {}
 
   path-to-regexp@6.3.0: {}
@@ -995,6 +1029,18 @@ snapshots:
 
   tslib@2.8.1:
     optional: true
+
+  twitter-api-v2@1.22.0: {}
+
+  twitter-types@0.26.0: {}
+
+  twitter.js@0.14.0:
+    dependencies:
+      '@discordjs/collection': 0.5.0
+      '@sapphire/async-queue': 1.5.5
+      oauth-1.0a: 2.2.6
+      twitter-types: 0.26.0
+      undici: 5.29.0
 
   typescript@5.8.3: {}
 

@@ -27,6 +27,34 @@ export async function sendMessageToTelegram(token: string, chatId: string, messa
 	}
 }
 
+// --- Twitter Posting Utility Function ---
+import { TwitterApi } from 'twitter-api-v2';
+
+export async function postToTwitter(
+	TWITTER_API_KEY: string,
+	TWITTER_API_KEY_SECRET: string,
+	ACCESS_TOKEN: string,
+	ACCESS_TOKEN_SECRET: string,
+	content: string
+): Promise<void> {
+	const client = new TwitterApi({
+		appKey: TWITTER_API_KEY,
+		appSecret: TWITTER_API_KEY_SECRET,
+		accessToken: ACCESS_TOKEN,
+		accessSecret: ACCESS_TOKEN_SECRET,
+	});
+
+	// 以段落分割，過濾空行或過長推文
+	const thread = content
+		.split('\n')
+		.map((p) => p.trim())
+		.filter((p) => p.length > 0 && p.length <= 280)
+		.map((text) => ({ text }));
+
+	const res = await client.v2.tweetThread(thread);
+	console.log('Tweeted thread:', res);
+}
+
 // --- New AI Summarization Utility Function ---
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 

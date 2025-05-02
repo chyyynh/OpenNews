@@ -72,7 +72,7 @@ const SummaryByAI = async (title: string, article: string, apiKey: string) => {
 	const genAI = new GoogleGenAI({ apiKey });
 	const response = await genAI.models.generateContent({
 		model: 'gemini-1.5-flash',
-		contents: `幫我用中文 1-3 句話總結這篇新聞 \n\n ${title} \n\n ${article}`,
+		contents: `幫我用繁體中文 1-3 句話總結這篇新聞 \n\n ${title} \n\n ${article}`,
 	});
 	const text = response.text ?? '';
 	return text;
