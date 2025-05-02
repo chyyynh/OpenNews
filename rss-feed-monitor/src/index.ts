@@ -28,6 +28,8 @@ async function processAndInsertArticle(supabase: any, env: Env, item: any, feed?
 		crawled_content = await scrapeArticleContent(item.link);
 	}
 
+	const ai_summary = await SummaryByAI(item.title || item.text, crawled_content, env.GEMINI_API_KEY);
+
 	const insert = {
 		url: url,
 		title: item.title || item.text || item.news_title || 'No Title',
@@ -36,7 +38,7 @@ async function processAndInsertArticle(supabase: any, env: Env, item: any, feed?
 		scraped_date: new Date(),
 		categories,
 		tags: item.coins_included || tags,
-		summary,
+		summary: ai_summary,
 		source_type: source_type || `websocket`,
 		content: crawled_content,
 	};
@@ -50,7 +52,7 @@ async function processAndInsertArticle(supabase: any, env: Env, item: any, feed?
 		await sendMessageToTelegram(
 			env.TELEGRAM_BOT_TOKEN,
 			env.TELEGRAM_CHAT_ID,
-			`${aiCommentary}\n${feed.name}:${item.title || item.text || item.news_title}\n\n${url}`
+			`${aiCommentary}\n${feed.name}:${item.title || item.text || item.news_title}\n\n${ai_summary}\n\n${url}`
 		);
 		console.log(`[${feed.name}] New article: ${item.title || item.text} tags ${JSON.stringify(tags)}`);
 	}
@@ -61,6 +63,16 @@ const CommentByAI = async (title: string, summary: string, apiKey: string) => {
 	const response = await genAI.models.generateContent({
 		model: 'gemini-1.5-flash',
 		contents: `你是穿越時空的炒幣 degen 孫子兵法裡的孫武, 請用最多兩段文字盡可能簡潔的評論這則新聞: ${title} ${summary}`,
+	});
+	const text = response.text ?? '';
+	return text;
+};
+
+const SummaryByAI = async (title: string, article: string, apiKey: string) => {
+	const genAI = new GoogleGenAI({ apiKey });
+	const response = await genAI.models.generateContent({
+		model: 'gemini-1.5-flash',
+		contents: `幫我用中文 1-3 句話總結這篇新聞 \n\n ${title} \n\n ${article}`,
 	});
 	const text = response.text ?? '';
 	return text;

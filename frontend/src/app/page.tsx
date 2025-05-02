@@ -1,7 +1,7 @@
 import { createClient, PostgrestError } from "@supabase/supabase-js";
 import Link from "next/link";
 import { use } from "react";
-import { Button } from "@/components/ui/button"; // Import Button
+import { Button } from "@/components/ui/button";
 
 interface ArticleItem {
   id: number;
@@ -9,9 +9,9 @@ interface ArticleItem {
   url: string;
   published_date: string;
   tags: string[];
+  summary: string | null; // Add summary field
 }
 
-// Create Supabase client - ensure env vars are set
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
@@ -43,9 +43,8 @@ async function getTags(): Promise<string[]> {
   return uniqueTags.sort(); // Return the data directly
 }
 
-// Make the function async and await the result
 async function getArticles(
-  selectedTag: string | null
+  selectedTags: string[]
 ): Promise<
   | { articles: ArticleItem[]; error: null }
   | { articles: []; error: PostgrestError }
@@ -53,14 +52,15 @@ async function getArticles(
   // Return type indicates either success or error state clearly
   let query = supabase
     .from("articles")
-    .select("id, title, url, published_date, tags")
+    .select("id, title, url, published_date, tags, summary") // Select summary
     .order("published_date", { ascending: false });
 
-  if (selectedTag) {
-    query = query.contains("tags", [selectedTag]);
+  // Use 'overlaps' operator to find articles matching ANY selected tag (union)
+  if (selectedTags.length > 0) {
+    query = query.overlaps("tags", selectedTags);
   }
 
-  query = query.limit(20);
+  query = query.limit(20); // Keep the limit
 
   const { data, error } = await query;
 
@@ -74,27 +74,38 @@ async function getArticles(
   return { articles: (data as ArticleItem[]) || [], error: null };
 }
 
-// Define the type for searchParams if using the Promise pattern
 type SearchParams = { [key: string]: string | string[] | undefined };
 
 // Page component is now synchronous (no 'async' keyword)
 export default function Home(props: { searchParams: Promise<SearchParams> }) {
-  // Resolve searchParams promise
   const searchParams = use(props.searchParams);
-  const selectedTag =
-    typeof searchParams?.tag === "string" ? searchParams.tag : null;
+  // Read multiple tags from the 'tags' query parameter
+  const selectedTagsString =
+    typeof searchParams?.tags === "string" ? searchParams.tags : "";
+  const selectedTags = selectedTagsString ? selectedTagsString.split(",") : [];
 
   // Resolve data fetching promises using the async functions
-  // Note: Error handling for use() typically involves Error Boundaries
-  // Consider wrapping parts of the component in <Suspense> if needed
-  const tags = use(getTags()); // Call the async function directly
-  const { articles, error: fetchError } = use(getArticles(selectedTag)); // Call the async function
+  const tags = use(getTags());
+  const { articles, error: fetchError } = use(getArticles(selectedTags));
+
+  // Helper function to generate the href for tag toggling
+  const getToggleTagHref = (tag: string): string => {
+    const newSelectedTags = selectedTags.includes(tag)
+      ? selectedTags.filter((t) => t !== tag)
+      : [...selectedTags, tag];
+
+    if (newSelectedTags.length === 0) {
+      return "/";
+    }
+    return `/?tags=${newSelectedTags.map(encodeURIComponent).join(",")}`;
+  };
 
   return (
     <div className="container mx-auto p-4 sm:p-8 font-[family-name:var(--font-geist-sans)]">
       <header className="mb-8">
         <h1 className="text-3xl font-bold text-center sm:text-left">
-          Latest News {selectedTag ? ` - Tag: ${selectedTag}` : ""}
+          Latest News{" "}
+          {selectedTags.length > 0 ? ` - Tags: ${selectedTags.join(", ")}` : ""}
         </h1>
       </header>
 
@@ -114,7 +125,7 @@ export default function Home(props: { searchParams: Promise<SearchParams> }) {
               {articles.map((item: ArticleItem) => (
                 <li
                   key={item.id}
-                  className="border rounded-lg p-4 shadow hover:shadow-md transition-shadow"
+                  className="border rounded-lg p-4 shadow hover:shadow-md transition-shadow overflow-auto"
                 >
                   <a
                     href={item.url}
@@ -124,7 +135,15 @@ export default function Home(props: { searchParams: Promise<SearchParams> }) {
                   >
                     <h2 className="text-xl font-semibold mb-1">{item.title}</h2>
                   </a>
-                  <div className="text-sm text-gray-500 mt-1">
+                  {/* Display summary if it exists, limited to 3 lines */}
+                  {item.summary && (
+                    <p className="text-sm text-gray-600 mt-2 line-clamp-3">
+                      {item.summary}
+                    </p>
+                  )}
+                  <div className="text-sm text-gray-500 mt-2">
+                    {" "}
+                    {/* Added mt-2 for spacing */}
                     <span>
                       Published:{" "}
                       {new Date(item.published_date).toLocaleDateString()}
@@ -142,39 +161,37 @@ export default function Home(props: { searchParams: Promise<SearchParams> }) {
             // Display message if no articles found and no error
             !fetchError && (
               <p>
-                No articles found{" "}
-                {selectedTag ? ` for tag "${selectedTag}"` : ""}.
+                No articles found
+                {selectedTags.length > 0
+                  ? ` for tags: "${selectedTags.join(", ")}"`
+                  : ""}
+                .
               </p>
             )
           )}
         </main>
 
         {/* Right Column (Tag Filters) */}
-        {/* Right Column (Tag Filters) */}
         <aside className="md:col-span-1 border-l md:pl-6">
           <h2 className="text-xl font-semibold mb-4">Filter by Tag</h2>
           <div className="flex flex-wrap gap-2">
-            {" "}
-            {/* Use flex-wrap for wrapping */}
+            {/* "All Tags" button clears selection */}
             <Link href="/" passHref>
               <Button
-                variant={!selectedTag ? "default" : "outline"}
+                variant={selectedTags.length === 0 ? "default" : "outline"}
                 size="sm"
-                className="rounded-full" // Make buttons rounded
+                className="rounded-full"
               >
                 All Tags
               </Button>
             </Link>
+            {/* Tag buttons toggle selection */}
             {tags.map((tag) => (
-              <Link
-                href={`/?tag=${encodeURIComponent(tag)}`}
-                key={tag}
-                passHref
-              >
+              <Link href={getToggleTagHref(tag)} key={tag} passHref>
                 <Button
-                  variant={selectedTag === tag ? "default" : "outline"}
+                  variant={selectedTags.includes(tag) ? "default" : "outline"}
                   size="sm"
-                  className="rounded-full" // Make buttons rounded
+                  className="rounded-full"
                 >
                   {tag}
                 </Button>
