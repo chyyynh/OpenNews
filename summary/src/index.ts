@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 // Import both utility functions
 import { sendMessageToTelegram, summarizeWithGemini, postToTwitter } from './utils';
+import { postTweetThread } from './twitter';
 // Remove direct import of GoogleGenerativeAI components here
 
 interface Env {
@@ -12,8 +13,8 @@ interface Env {
 	TWITTER_BEARER_TOKEN: string;
 	TWITTER_API_KEY: string;
 	TWITTER_API_KEY_SECRET: string;
-	ACCES_TOKEN: string;
-	ACCES_TOKEN_SECRET: string;
+	ACCESS_TOKEN: string;
+	ACCESS_TOKEN_SECRET: string;
 }
 
 export default {
@@ -84,8 +85,8 @@ export default {
 			console.log(`Sending Sun Tzu summary for ${timeWindowIdentifier} to Telegram...`);
 			await sendMessageToTelegram(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHAT_ID, finalReport);
 			console.log('telegram: AI Daily report sent successfully');
-			await postToTwitter(env.TWITTER_API_KEY, env.TWITTER_API_KEY_SECRET, env.ACCES_TOKEN, env.ACCES_TOKEN_SECRET, finalReport); // Post to Twitter
-			console.log('twitter: AI Daily report sent successfully');
+			// await postToTwitter(env.TWITTER_API_KEY, env.TWITTER_API_KEY_SECRET, env.ACCESS_TOKEN, env.ACCESS_TOKEN_SECRET, finalReport);
+			// console.log('twitter: AI Daily report sent successfully');
 		} catch (aiError) {
 			console.error('Error during AI summarization or sending:', aiError);
 			// Send a fallback error message (error handling remains here)

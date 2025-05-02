@@ -48,10 +48,9 @@ export async function postToTwitter(
 	const thread = content
 		.split('\n')
 		.map((p) => p.trim())
-		.filter((p) => p.length > 0 && p.length <= 280)
-		.map((text) => ({ text }));
+		.filter((p) => p.length > 0 && p.length <= 280);
 
-	const res = await client.v2.tweetThread(thread);
+	const res = await client.v1.tweetThread(thread);
 	console.log('Tweeted thread:', res);
 }
 
