@@ -1,8 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
-// Import both utility functions
 import { sendMessageToTelegram, summarizeWithGemini, postToTwitter } from './utils';
-import { postTweetThread } from './twitter';
-// Remove direct import of GoogleGenerativeAI components here
+import { postThread } from './twitter';
 
 interface Env {
 	SUPABASE_URL: string;
@@ -62,7 +60,6 @@ export default {
 		// 生成報告 (This raw report is now just input for the AI)
 		let reportInput = `Time Window: ${timeWindowIdentifier}\n\n`; // Changed variable name from report to reportInput
 		for (const [category, items] of Object.entries(categories)) {
-			// Use the original categories variable
 			reportInput += `【${category}】\n`;
 			items.forEach((item) => {
 				const coins = item.tags?.coins?.join(', ') || '無';
@@ -73,23 +70,15 @@ export default {
 
 		// --- AI Summarization using Utility Function ---
 		try {
-			// The 'articles' data fetched from Supabase should match the ArticleForSummary interface
-			// defined in utils.ts because we selected title, url, source, and tags.
-			// Pass the articles and the desired style to the summarizer
-			const summary = await summarizeWithGemini(env.GEMINI_API_KEY, articles, 'Sun Tzu'); // Pass 'Sun Tzu' style
-
-			// Format the final report with the new style
-			const finalReport = `[summary] ${timeWindowIdentifier}\n\n${summary}`; // Use new header and style
-
-			// --- Send AI Summary ---
+			const summary = await summarizeWithGemini(env.GEMINI_API_KEY, articles, 'Sun Tzu');
+			const finalReport = `[summary] ${timeWindowIdentifier}\n\n${summary}`;
 			console.log(`Sending Sun Tzu summary for ${timeWindowIdentifier} to Telegram...`);
 			await sendMessageToTelegram(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHAT_ID, finalReport);
 			console.log('telegram: AI Daily report sent successfully');
-			// await postToTwitter(env.TWITTER_API_KEY, env.TWITTER_API_KEY_SECRET, env.ACCESS_TOKEN, env.ACCESS_TOKEN_SECRET, finalReport);
-			// console.log('twitter: AI Daily report sent successfully');
+			await postThread(env.TWITTER_BEARER_TOKEN, finalReport);
+			console.log('twitter: AI Daily report sent successfully');
 		} catch (aiError) {
 			console.error('Error during AI summarization or sending:', aiError);
-			// Send a fallback error message (error handling remains here)
 			let errorMessage = '未知錯誤';
 			if (aiError instanceof Error) {
 				errorMessage = aiError.message;
