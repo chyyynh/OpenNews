@@ -19,10 +19,6 @@
 		"@hono/node-server": "^1.14.1",
 		"@hono/oauth-providers": "^0.7.1",
 		"@supabase/supabase-js": "^2.49.4",
-		"dotenv": "^16.5.0",
-		"fast-xml-parser": "^5.2.0",
-		"hono": "^4.7.8",
-		"twitter-api-v2": "^1.22.0",
-		"twitter.js": "^0.14.0"
+		"fast-xml-parser": "^5.2.0"
 	}
 }

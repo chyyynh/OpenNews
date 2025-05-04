@@ -1,22 +1,43 @@
 const TWITTER_API_ENDPOINT = 'https://api.twitter.com/2/tweets';
 
-function splitContentIntoTweets(content: string, maxLength = 280): string[] {
-	const lines = content.split('\n').filter((line) => line.trim() !== '');
-	const chunks: string[] = [];
-	let current = '';
+function splitContentIntoTweets(content: string, maxLength = 250): string[] {
+	const contentWithoutNewlines = content.replace(/\r?\n/g, ' ');
+	const words = contentWithoutNewlines.split(/\s+/).filter((word) => word.length > 0);
 
-	for (const line of lines) {
-		const next = current ? current + '\n' + line : line;
-		if (next.length + 5 <= maxLength) {
-			current = next;
+	const chunks: string[] = [];
+	let currentChunkWords: string[] = [];
+	const estimatedNumberingLength = 10;
+	const effectiveMaxLength = maxLength - estimatedNumberingLength;
+
+	for (const word of words) {
+		const lengthIfAdded = currentChunkWords.join(' ').length + (currentChunkWords.length > 0 ? 1 : 0) + word.length;
+
+		if (lengthIfAdded > effectiveMaxLength) {
+			if (currentChunkWords.length > 0) {
+				chunks.push(currentChunkWords.join(' '));
+				currentChunkWords = [];
+			} else {
+				chunks.push(word);
+				currentChunkWords = [];
+				continue; // 處理下一個單詞
+			}
+			currentChunkWords.push(word);
 		} else {
-			if (current) chunks.push(current);
-			current = line;
+			currentChunkWords.push(word);
 		}
 	}
 
-	if (current) chunks.push(current);
-	return chunks;
+	if (currentChunkWords.length > 0) {
+		chunks.push(currentChunkWords.join(' '));
+	}
+
+	const totalChunks = chunks.length;
+	const numberedChunks = chunks.map((chunk, index) => {
+		const numbering = ` ${index + 1}/${totalChunks}`;
+		return chunk + numbering;
+	});
+
+	return numberedChunks;
 }
 
 async function postSingleTweet(text: string, token: string, inReplyToId?: string): Promise<string> {
@@ -25,31 +46,36 @@ async function postSingleTweet(text: string, token: string, inReplyToId?: string
 		payload.reply = { in_reply_to_tweet_id: inReplyToId };
 	}
 
-	const response = await fetch(TWITTER_API_ENDPOINT, {
-		method: 'POST',
-		headers: {
-			Authorization: `Bearer ${token}`,
-			'Content-Type': 'application/json',
-		},
-		body: JSON.stringify(payload),
-	});
+	console.log('Posting tweet:', payload);
 
-	const responseBody = (await response.json()) as {
+	let response: Response;
+	try {
+		response = await fetch(TWITTER_API_ENDPOINT, {
+			method: 'POST',
+			headers: {
+				Authorization: `Bearer ${token}`,
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify(payload),
+		});
+	} catch (networkErr) {
+		throw new Error(`Network error while contacting Twitter: ${String(networkErr)}`);
+	}
+
+	let responseBody: {
 		title?: string;
 		detail?: string;
 		data?: { id?: string };
 	};
 
-	if (!response.ok) {
-		console.error('Twitter API Error:', responseBody);
-		throw new Error(
-			`Failed to post tweet. Status: ${response.status}. Error: ${responseBody.title || 'Unknown'}. Detail: ${
-				responseBody.detail || 'No detail'
-			}`
-		);
+	try {
+		responseBody = (await response.json()) as typeof responseBody;
+	} catch (parseErr) {
+		throw new Error(`Could not parse Twitter response JSON: ${String(parseErr)}`);
 	}
 
 	const tweetId = responseBody?.data?.id;
+	console.log('Twitter response:', responseBody);
 	if (!tweetId) {
 		throw new Error('Tweet posted but no ID returned.');
 	}
@@ -59,34 +85,30 @@ async function postSingleTweet(text: string, token: string, inReplyToId?: string
 
 export async function postThread(TWITTER_BEARER_TOKEN: string, content: string): Promise<string[]> {
 	if (!TWITTER_BEARER_TOKEN) {
-		console.error('BEARER Token is required.');
-		return [];
+		throw new Error('TWITTER_BEARER_TOKEN is required but was empty.');
 	}
 
 	if (!content?.trim()) {
-		console.log('No content to post.');
-		return [];
+		throw new Error('postThread called with empty content.');
 	}
 
-	const rawTweets = splitContentIntoTweets(content);
-	const total = rawTweets.length;
-	const tweetsWithNumbering = rawTweets.map((text, i) => {
-		const suffix = `\n${i + 1}/${total}`;
-		// 如果太長就砍掉部分內容以保留 suffix
-		if ((text + suffix).length > 280) {
+	const threads = splitContentIntoTweets(content);
+	const tweetsWithNumbering = threads.map((text, i) => {
+		const suffix = `${i + 1}/${threads.length}`;
+		if ((suffix + text).length > 280) {
 			return text.slice(0, 280 - suffix.length) + suffix;
 		}
-		return text + suffix;
+		return suffix + text;
 	});
 
-	console.log(`Splitting content into ${total} tweet(s).`);
+	console.log(`Splitting content into ${threads.length} tweet(s).`);
 
 	let replyToId: string | undefined;
 	const tweetIds: string[] = [];
 
 	for (let i = 0; i < tweetsWithNumbering.length; i++) {
 		const text = tweetsWithNumbering[i];
-		console.log(`Posting tweet ${i + 1}/${total}: "${text.slice(0, 50)}..."`);
+		console.log(`Posting tweet ${i + 1}/${threads.length} replying ${replyToId}: \n"${text}" )`);
 		try {
 			const tweetId = await postSingleTweet(text, TWITTER_BEARER_TOKEN, replyToId);
 			console.log(`Tweet ${i + 1} posted successfully. ID: ${tweetId}`);
