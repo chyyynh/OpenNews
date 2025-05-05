@@ -1,5 +1,17 @@
 const TWITTER_API_ENDPOINT = 'https://api.twitter.com/2/tweets';
 
+interface Env {
+	SUPABASE_URL: string;
+	SUPABASE_SERVICE_ROLE_KEY: string;
+	TELEGRAM_BOT_TOKEN: string;
+	TELEGRAM_CHAT_ID: string;
+	GEMINI_API_KEY: string;
+	TWITTER_BEARER_TOKEN: string;
+	TWITTER_CLINENT_ID: string;
+	TWITTER_CLINENT_SECRET: string;
+	TWITTER_KV: KVNamespace;
+}
+
 function splitContentIntoTweets(content: string, maxLength = 250): string[] {
 	const contentWithoutNewlines = content.replace(/\r?\n/g, ' ');
 	const words = contentWithoutNewlines.split(/\s+/).filter((word) => word.length > 0);
@@ -126,4 +138,41 @@ export async function postThread(TWITTER_BEARER_TOKEN: string, content: string):
 
 	console.log('Thread posted successfully!');
 	return tweetIds;
+}
+
+/// --- Twitter Bearer Token Management ---
+
+export async function getValidBearerToken(env: Env): Promise<string> {
+	const cached = await env.TWITTER_KV.get('ACCESS_TOKEN');
+	if (cached) return cached;
+	return await refreshTwitterBearerToken(env);
+}
+
+async function refreshTwitterBearerToken(env: Env): Promise<string> {
+	const params = new URLSearchParams();
+	const BEARER_TOKEN = await env.TWITTER_KV.get('BEARER_TOKEN');
+	if (!BEARER_TOKEN) {
+		throw new Error('BEARER_TOKEN is null or undefined.');
+	}
+	params.append('refresh_token', BEARER_TOKEN);
+	params.append('grant_type', 'refresh_token');
+	params.append('client_id', env.TWITTER_CLINENT_ID);
+
+	const res = await fetch('env.https://api.x.com/2/oauth2/token', {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/x-www-form-urlencoded',
+		},
+		body: params.toString(),
+	});
+
+	if (!res.ok) throw new Error('Failed to refresh Twitter access token');
+
+	const data = (await res.json()) as { access_token: string; expires_in?: number };
+	const newAccessToken = data.access_token;
+	const expiresIn = data.expires_in || 3600;
+
+	await env.TWITTER_KV.put('BEARER_TOKEN', newAccessToken, { expirationTtl: expiresIn });
+	console.log('New Twitter Bearer token cached with expiration:', expiresIn);
+	return newAccessToken;
 }

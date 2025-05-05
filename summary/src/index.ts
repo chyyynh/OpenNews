@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { sendMessageToTelegram, summarizeWithGemini, postToTwitter } from './utils';
-import { postThread } from './twitter';
+import { postThread, getValidBearerToken } from './twitter';
 
 interface Env {
 	SUPABASE_URL: string;
@@ -9,10 +9,9 @@ interface Env {
 	TELEGRAM_CHAT_ID: string;
 	GEMINI_API_KEY: string;
 	TWITTER_BEARER_TOKEN: string;
-	TWITTER_API_KEY: string;
-	TWITTER_API_KEY_SECRET: string;
-	ACCESS_TOKEN: string;
-	ACCESS_TOKEN_SECRET: string;
+	TWITTER_CLINENT_ID: string;
+	TWITTER_CLINENT_SECRET: string;
+	TWITTER_KV: KVNamespace;
 }
 
 export default {
@@ -68,14 +67,20 @@ export default {
 			reportInput += '\n'; // Keep the original report generation for input to AI
 		}
 
-		// --- AI Summarization using Utility Function ---
 		try {
+			// Use the new AI summarization utility function
 			const summary = await summarizeWithGemini(env.GEMINI_API_KEY, articles, 'Sun Tzu');
 			const finalReport = `[summary] ${timeWindowIdentifier}\n\n${summary}`;
+
+			// --- Telegram Posting ---
 			console.log(`Sending Sun Tzu summary for ${timeWindowIdentifier} to Telegram...`);
 			await sendMessageToTelegram(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHAT_ID, finalReport);
 			console.log('telegram: AI Daily report sent successfully');
-			await postThread(env.TWITTER_BEARER_TOKEN, finalReport);
+
+			// --- Twitter Posting ---
+			const twitterBearerToken = await getValidBearerToken(env);
+
+			await postThread(twitterBearerToken, finalReport);
 			console.log('twitter: AI Daily report sent successfully');
 		} catch (aiError) {
 			console.error('Error during AI summarization or sending:', aiError);
