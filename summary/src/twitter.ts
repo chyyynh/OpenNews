@@ -1,121 +1,181 @@
-// utils/twitter.ts - Cloudflare Worker Compatible Twitter Poster
+const TWITTER_API_ENDPOINT = 'https://api.twitter.com/2/tweets';
 
-/**
- * OAuth 1.0a 签名工具
- */
-function percentEncode(str: string): string {
-	return encodeURIComponent(str).replace(/[!*()']/g, (char) => '%' + char.charCodeAt(0).toString(16));
+interface Env {
+	SUPABASE_URL: string;
+	SUPABASE_SERVICE_ROLE_KEY: string;
+	TELEGRAM_BOT_TOKEN: string;
+	TELEGRAM_CHAT_ID: string;
+	GEMINI_API_KEY: string;
+	TWITTER_BEARER_TOKEN: string;
+	TWITTER_CLIENT_ID: string;
+	TWITTER_CLIENT_SECRET: string;
+	TWITTER_KV: KVNamespace;
 }
 
-function generateNonce(length = 32): string {
-	const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-	let nonce = '';
-	for (let i = 0; i < length; i++) {
-		nonce += chars.charAt(Math.floor(Math.random() * chars.length));
+function splitContentIntoTweets(content: string, maxLength = 250): string[] {
+	const contentWithoutNewlines = content.replace(/\r?\n/g, ' ');
+	const words = contentWithoutNewlines.split(/\s+/).filter((word) => word.length > 0);
+
+	const chunks: string[] = [];
+	let currentChunkWords: string[] = [];
+	const estimatedNumberingLength = 10;
+	const effectiveMaxLength = maxLength - estimatedNumberingLength;
+
+	for (const word of words) {
+		const lengthIfAdded = currentChunkWords.join(' ').length + (currentChunkWords.length > 0 ? 1 : 0) + word.length;
+
+		if (lengthIfAdded > effectiveMaxLength) {
+			if (currentChunkWords.length > 0) {
+				chunks.push(currentChunkWords.join(' '));
+				currentChunkWords = [];
+			} else {
+				chunks.push(word);
+				currentChunkWords = [];
+				continue; // 處理下一個單詞
+			}
+			currentChunkWords.push(word);
+		} else {
+			currentChunkWords.push(word);
+		}
 	}
-	return nonce;
+
+	if (currentChunkWords.length > 0) {
+		chunks.push(currentChunkWords.join(' '));
+	}
+
+	const totalChunks = chunks.length;
+	const numberedChunks = chunks.map((chunk, index) => {
+		const numbering = ` ${index + 1}/${totalChunks}`;
+		return chunk + numbering;
+	});
+
+	return numberedChunks;
 }
 
-async function getOAuth1Header({
-	method,
-	url,
-	body,
-	consumerKey,
-	consumerSecret,
-	accessToken,
-	accessSecret,
-}: {
-	method: 'POST';
-	url: string;
-	body: string;
-	consumerKey: string;
-	consumerSecret: string;
-	accessToken: string;
-	accessSecret: string;
-}): Promise<string> {
-	const oauthParams = {
-		oauth_consumer_key: consumerKey,
-		oauth_nonce: generateNonce(),
-		oauth_signature_method: 'HMAC-SHA1',
-		oauth_timestamp: Math.floor(Date.now() / 1000).toString(),
-		oauth_token: accessToken,
-		oauth_version: '1.0',
-	};
+async function postSingleTweet(text: string, token: string, inReplyToId?: string): Promise<string> {
+	const payload: { text: string; reply?: { in_reply_to_tweet_id: string } } = { text };
+	if (inReplyToId) {
+		payload.reply = { in_reply_to_tweet_id: inReplyToId };
+	}
 
-	const baseParams = {
-		...oauthParams,
-	};
+	console.log('Posting tweet:', payload);
 
-	const sortedParams = Object.entries(baseParams)
-		.map(([k, v]) => [percentEncode(k), percentEncode(v)])
-		.sort(([a], [b]) => a.localeCompare(b))
-		.map(([k, v]) => `${k}=${v}`)
-		.join('&');
-
-	const baseString = [method.toUpperCase(), percentEncode(url), percentEncode(sortedParams)].join('&');
-
-	const signingKey = `${percentEncode(consumerSecret)}&${percentEncode(accessSecret)}`;
-
-	const keyData = new TextEncoder().encode(signingKey);
-	const msgData = new TextEncoder().encode(baseString);
-	const cryptoKey = await crypto.subtle.importKey('raw', keyData, { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
-	const signatureBuffer = await crypto.subtle.sign('HMAC', cryptoKey, msgData);
-	const signature = btoa(String.fromCharCode(...new Uint8Array(signatureBuffer)));
-
-	return (
-		'OAuth ' +
-		Object.entries({
-			...oauthParams,
-			oauth_signature: signature,
-		})
-			.map(([k, v]) => `${percentEncode(k)}="${percentEncode(v)}"`)
-			.join(', ')
-	);
-}
-
-export async function postTweetThread({
-	consumerKey,
-	consumerSecret,
-	accessToken,
-	accessSecret,
-	thread,
-}: {
-	consumerKey: string;
-	consumerSecret: string;
-	accessToken: string;
-	accessSecret: string;
-	thread: string[];
-}) {
-	let replyToId: string | undefined;
-
-	for (const tweet of thread) {
-		const url = 'https://api.twitter.com/2/tweets';
-		const body = JSON.stringify(replyToId ? { text: tweet, reply: { in_reply_to_tweet_id: replyToId } } : { text: tweet });
-
-		const authHeader = await getOAuth1Header({
-			method: 'POST',
-			url,
-			body: '', // Twitter API v2 不需要 body 參與簽名，安全起見填空字串
-			consumerKey,
-			consumerSecret,
-			accessToken,
-			accessSecret,
-		});
-
-		const res = await fetch(url, {
+	let response: Response;
+	try {
+		response = await fetch(TWITTER_API_ENDPOINT, {
 			method: 'POST',
 			headers: {
-				Authorization: authHeader,
+				Authorization: `Bearer ${token}`,
 				'Content-Type': 'application/json',
 			},
-			body,
+			body: JSON.stringify(payload),
 		});
-
-		const data = (await res.json()) as { data: { id: string } };
-		if (!res.ok) {
-			throw new Error(`Tweet failed: ${JSON.stringify(data)}`);
-		}
-
-		replyToId = data.data.id;
+	} catch (networkErr) {
+		throw new Error(`Network error while contacting Twitter: ${String(networkErr)}`);
 	}
+
+	let responseBody: {
+		title?: string;
+		detail?: string;
+		data?: { id?: string };
+	};
+
+	try {
+		responseBody = (await response.json()) as typeof responseBody;
+	} catch (parseErr) {
+		throw new Error(`Could not parse Twitter response JSON: ${String(parseErr)}`);
+	}
+
+	const tweetId = responseBody?.data?.id;
+	console.log('Twitter response:', responseBody);
+	if (!tweetId) {
+		throw new Error('Tweet posted but no ID returned.');
+	}
+
+	return tweetId;
+}
+
+export async function postThread(TWITTER_BEARER_TOKEN: string, content: string): Promise<string[]> {
+	if (!TWITTER_BEARER_TOKEN) {
+		throw new Error('TWITTER_BEARER_TOKEN is required but was empty.');
+	}
+
+	if (!content?.trim()) {
+		throw new Error('postThread called with empty content.');
+	}
+
+	const threads = splitContentIntoTweets(content);
+	const tweetsWithNumbering = threads.map((text, i) => {
+		const suffix = `${i + 1}/${threads.length}`;
+		if ((suffix + text).length > 280) {
+			return text.slice(0, 280 - suffix.length) + suffix;
+		}
+		return suffix + text;
+	});
+
+	console.log(`Splitting content into ${threads.length} tweet(s).`);
+
+	let replyToId: string | undefined;
+	const tweetIds: string[] = [];
+
+	for (let i = 0; i < tweetsWithNumbering.length; i++) {
+		const text = tweetsWithNumbering[i];
+		console.log(`Posting tweet ${i + 1}/${threads.length} replying ${replyToId}: \n"${text}" )`);
+		try {
+			const tweetId = await postSingleTweet(text, TWITTER_BEARER_TOKEN, replyToId);
+			console.log(`Tweet ${i + 1} posted successfully. ID: ${tweetId}`);
+			tweetIds.push(tweetId);
+			replyToId = tweetId;
+
+			if (i < tweetsWithNumbering.length - 1) {
+				await new Promise((res) => setTimeout(res, 1000));
+			}
+		} catch (err) {
+			console.error(`Failed to post tweet ${i + 1}:`, err);
+			throw err;
+		}
+	}
+
+	console.log('Thread posted successfully!');
+	return tweetIds;
+}
+
+/// --- Twitter Bearer Token Management ---
+
+export async function getValidBearerToken(env: Env): Promise<string> {
+	const cached = await env.TWITTER_KV.get('BEARER_TOKEN');
+	if (cached) return cached;
+	return await refreshTwitterBearerToken(env);
+}
+
+async function refreshTwitterBearerToken(env: Env): Promise<string> {
+	const params = new URLSearchParams();
+	const BEARER_TOKEN = await env.TWITTER_KV.get('BEARER_TOKEN');
+	if (!BEARER_TOKEN) {
+		throw new Error('BEARER_TOKEN is null or undefined.');
+	}
+	params.append('refresh_token', BEARER_TOKEN);
+	params.append('grant_type', 'refresh_token');
+	params.append('client_id', env.TWITTER_CLIENT_ID);
+
+	const res = await fetch('https://api.x.com/2/oauth2/token', {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/x-www-form-urlencoded',
+		},
+		body: params.toString(),
+	});
+
+	if (!res.ok) {
+		const errorText = await res.text().catch(() => 'Could not read error response');
+		throw new Error(`Failed to refresh Twitter access token: ${res.status} ${res.statusText} - ${errorText}`);
+	}
+
+	const data = (await res.json()) as { access_token: string; expires_in?: number };
+	const newAccessToken = data.access_token;
+	const expiresIn = data.expires_in || 3600;
+
+	await env.TWITTER_KV.put('BEARER_TOKEN', newAccessToken, { expirationTtl: expiresIn });
+	console.log('New Twitter Bearer token cached with expiration:', expiresIn);
+	return newAccessToken;
 }

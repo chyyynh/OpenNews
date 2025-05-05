@@ -10,14 +10,15 @@
 	},
 	"devDependencies": {
 		"@cloudflare/workers-types": "^4.20250405.0",
+		"@types/bun": "^1.2.12",
 		"typescript": "^5.8.3",
 		"wrangler": "^4.8.0"
 	},
 	"dependencies": {
 		"@google/generative-ai": "^0.24.0",
+		"@hono/node-server": "^1.14.1",
+		"@hono/oauth-providers": "^0.7.1",
 		"@supabase/supabase-js": "^2.49.4",
-		"fast-xml-parser": "^5.2.0",
-		"twitter-api-v2": "^1.22.0",
-		"twitter.js": "^0.14.0"
+		"fast-xml-parser": "^5.2.0"
 	}
 }
