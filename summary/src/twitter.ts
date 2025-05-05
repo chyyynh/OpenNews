@@ -7,8 +7,8 @@ interface Env {
 	TELEGRAM_CHAT_ID: string;
 	GEMINI_API_KEY: string;
 	TWITTER_BEARER_TOKEN: string;
-	TWITTER_CLINENT_ID: string;
-	TWITTER_CLINENT_SECRET: string;
+	TWITTER_CLIENT_ID: string;
+	TWITTER_CLIENT_SECRET: string;
 	TWITTER_KV: KVNamespace;
 }
 
@@ -143,7 +143,7 @@ export async function postThread(TWITTER_BEARER_TOKEN: string, content: string):
 /// --- Twitter Bearer Token Management ---
 
 export async function getValidBearerToken(env: Env): Promise<string> {
-	const cached = await env.TWITTER_KV.get('ACCESS_TOKEN');
+	const cached = await env.TWITTER_KV.get('BEARER_TOKEN');
 	if (cached) return cached;
 	return await refreshTwitterBearerToken(env);
 }
@@ -156,9 +156,9 @@ async function refreshTwitterBearerToken(env: Env): Promise<string> {
 	}
 	params.append('refresh_token', BEARER_TOKEN);
 	params.append('grant_type', 'refresh_token');
-	params.append('client_id', env.TWITTER_CLINENT_ID);
+	params.append('client_id', env.TWITTER_CLIENT_ID);
 
-	const res = await fetch('env.https://api.x.com/2/oauth2/token', {
+	const res = await fetch('https://api.x.com/2/oauth2/token', {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/x-www-form-urlencoded',
@@ -166,7 +166,10 @@ async function refreshTwitterBearerToken(env: Env): Promise<string> {
 		body: params.toString(),
 	});
 
-	if (!res.ok) throw new Error('Failed to refresh Twitter access token');
+	if (!res.ok) {
+		const errorText = await res.text().catch(() => 'Could not read error response');
+		throw new Error(`Failed to refresh Twitter access token: ${res.status} ${res.statusText} - ${errorText}`);
+	}
 
 	const data = (await res.json()) as { access_token: string; expires_in?: number };
 	const newAccessToken = data.access_token;
