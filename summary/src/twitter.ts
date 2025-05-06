@@ -9,44 +9,114 @@ interface Env {
 	TWITTER_KV: KVNamespace;
 }
 
-function splitContentIntoTweets(content: string, maxLength = 180): string[] {
-	const contentWithoutNewlines = content.replace(/\r?\n/g, ' ');
-	const words = contentWithoutNewlines.split(/\s+/).filter((word) => word.length > 0);
+function splitContentIntoTweets(content: string, maxLength = 280): string[] {
+	const finalTweets: string[] = [];
+	// Estimate length for numbering like " (XX/YY)" -> ~7-8 chars. Let's use 8.
+	const estimatedNumberingLength = 8;
 
-	const chunks: string[] = [];
-	let currentChunkWords: string[] = [];
-	const estimatedNumberingLength = 10;
-	const effectiveMaxLength = maxLength - estimatedNumberingLength;
+	// Split by one or more double newlines to get paragraphs
+	const paragraphs = content.split(/\n\n+/).filter((p) => p.trim() !== '');
 
-	for (const word of words) {
-		const lengthIfAdded = currentChunkWords.join(' ').length + (currentChunkWords.length > 0 ? 1 : 0) + word.length;
+	for (const paragraph of paragraphs) {
+		// Max length for the text part of the tweet
+		const effectiveMaxLength = maxLength - estimatedNumberingLength;
 
-		if (lengthIfAdded > effectiveMaxLength) {
-			if (currentChunkWords.length > 0) {
-				chunks.push(currentChunkWords.join(' '));
-				currentChunkWords = [];
-			} else {
-				chunks.push(word);
-				currentChunkWords = [];
-				continue;
+		// If paragraph (plus numbering) fits, add it as is
+		if (paragraph.length <= effectiveMaxLength) {
+			finalTweets.push(paragraph);
+			continue;
+		}
+
+		// Paragraph is too long, needs further splitting.
+		// We'll try to build lines and then combine lines into tweets.
+		const lines = paragraph.split('\n');
+		let currentTweetLines: string[] = [];
+		let currentTweetLength = 0;
+
+		for (let i = 0; i < lines.length; i++) {
+			const line = lines[i];
+
+			// If the line itself is too long, it needs to be broken by words.
+			if (line.length > effectiveMaxLength) {
+				// Add any accumulated lines before processing this very long line
+				if (currentTweetLines.length > 0) {
+					finalTweets.push(currentTweetLines.join('\n'));
+					currentTweetLines = [];
+					currentTweetLength = 0;
+				}
+
+				const words = line.split(/(\s+)/); // Split by whitespace, keeping it
+				let currentSubLine = '';
+				for (const word of words) {
+					if (currentSubLine.length + word.length <= effectiveMaxLength) {
+						currentSubLine += word;
+					} else {
+						if (currentSubLine.trim().length > 0) finalTweets.push(currentSubLine.trim());
+						currentSubLine = word.trimStart(); // Start new sub-line
+						// If a single word is too long, it will be pushed as is and truncated later by numbering.
+						if (currentSubLine.length > effectiveMaxLength) {
+							finalTweets.push(currentSubLine.substring(0, effectiveMaxLength));
+							currentSubLine = currentSubLine.substring(effectiveMaxLength);
+						}
+					}
+				}
+				if (currentSubLine.trim().length > 0) finalTweets.push(currentSubLine.trim());
+				continue; // Move to the next line in the paragraph
 			}
-			currentChunkWords.push(word);
-		} else {
-			currentChunkWords.push(word);
+
+			// Check if adding this line (plus a newline char if not the first line in current tweet) exceeds length
+			const potentialNewLineLength = line.length + (currentTweetLines.length > 0 ? 1 : 0);
+
+			if (currentTweetLength + potentialNewLineLength <= effectiveMaxLength) {
+				currentTweetLines.push(line);
+				currentTweetLength += potentialNewLineLength;
+			} else {
+				// Current tweet is full, push it
+				if (currentTweetLines.length > 0) {
+					finalTweets.push(currentTweetLines.join('\n'));
+				}
+				// Start a new tweet with the current line
+				currentTweetLines = [line];
+				currentTweetLength = line.length;
+			}
+		}
+
+		// Add any remaining lines for the current paragraph
+		if (currentTweetLines.length > 0) {
+			finalTweets.push(currentTweetLines.join('\n'));
 		}
 	}
 
-	if (currentChunkWords.length > 0) {
-		chunks.push(currentChunkWords.join(' '));
+	// Filter out any empty strings that might have been added
+	const nonEmptyTweets = finalTweets.filter((t) => t.trim() !== '');
+
+	// Add numbering
+	const totalTweets = nonEmptyTweets.length;
+	if (totalTweets === 0) return [];
+
+	// If only one tweet and it fits without numbering, or fits with numbering, return it.
+	if (totalTweets === 1) {
+		const singleTweet = nonEmptyTweets[0];
+		const numbering = ` (1/1)`;
+		if (singleTweet.length <= maxLength - numbering.length) {
+			return [singleTweet + numbering]; // Add numbering even for single tweet for consistency
+		} else if (singleTweet.length <= maxLength) {
+			return [singleTweet]; // Fits as is, no space for numbering
+		}
+		// If it's too long even for a single tweet, truncate with ellipsis (no numbering)
+		return [singleTweet.substring(0, maxLength - 3) + '...'];
 	}
 
-	const totalChunks = chunks.length;
-	const numberedChunks = chunks.map((chunk, index) => {
-		const numbering = ` ${index + 1}/${totalChunks}`;
-		return chunk + numbering;
+	return nonEmptyTweets.map((tweet, index) => {
+		const numbering = ` (${index + 1}/${totalTweets})`;
+		let tweetText = tweet;
+		if (tweetText.length + numbering.length > maxLength) {
+			// Truncate tweetText to make space for numbering and ellipsis
+			const availableLength = maxLength - numbering.length - 3; // -3 for "..."
+			tweetText = tweetText.substring(0, availableLength < 0 ? 0 : availableLength) + '...';
+		}
+		return tweetText + numbering;
 	});
-
-	return numberedChunks;
 }
 
 async function postSingleTweet(text: string, token: string, inReplyToId?: string): Promise<string> {
@@ -98,8 +168,8 @@ async function postSingleTweet(text: string, token: string, inReplyToId?: string
 }
 
 export async function postThread(env: Env, content: string): Promise<string[]> {
-	const BearerToken = await getValidBearerToken(env);
-	if (!BearerToken) {
+	const ACCESS_TOKEN = await getValidAccessToken(env);
+	if (!ACCESS_TOKEN) {
 		throw new Error('Failed to obtain a valid Twitter access token for posting thread.');
 	}
 
@@ -117,7 +187,7 @@ export async function postThread(env: Env, content: string): Promise<string[]> {
 		const text = threads[i]; // Use directly from splitContentIntoTweets
 		console.log(`Posting tweet ${i + 1}/${threads.length} replying to ${replyToId || 'N/A'}: \n"${text}"`);
 		try {
-			const tweetId = await postSingleTweet(text, BearerToken, replyToId);
+			const tweetId = await postSingleTweet(text, ACCESS_TOKEN, replyToId);
 			console.log(`Tweet ${i + 1} posted successfully. ID: ${tweetId}`);
 			tweetIds.push(tweetId);
 			replyToId = tweetId;
@@ -137,12 +207,12 @@ export async function postThread(env: Env, content: string): Promise<string[]> {
 
 /// --- Twitter Token Management ---
 
-export async function getValidBearerToken(env: Env): Promise<string> {
-	const BearerToken = await env.TWITTER_KV.get('BEARER_TOKEN');
-	console.log('Cached Access Token from KV:', BearerToken ? 'Found' : 'Not Found/Expired');
+export async function getValidAccessToken(env: Env): Promise<string> {
+	const ACCESS_TOKEN = await env.TWITTER_KV.get('ACCESS_TOKEN');
+	console.log('Cached Access Token from KV:', ACCESS_TOKEN ? 'Found' : 'Not Found/Expired');
 
-	if (BearerToken) {
-		return BearerToken;
+	if (ACCESS_TOKEN) {
+		return ACCESS_TOKEN;
 	}
 
 	console.log('Bearer Token not found in KV or expired, attempting refresh.');
@@ -150,26 +220,23 @@ export async function getValidBearerToken(env: Env): Promise<string> {
 }
 
 async function refreshTwitterTokens(env: Env): Promise<string> {
-	const BearerToken = await env.TWITTER_KV.get('BEARER_TOKEN');
-	console.log('Retrieved Refresh Token from KV for refresh attempt:', BearerToken ? 'Found' : 'Not Found');
+	const REFRESH_TOKEN = await env.TWITTER_KV.get('REFRESH_TOKEN');
+	const client_id = env.TWITTER_CLIENT_ID;
+	const client_secret = env.TWITTER_CLIENT_SECRET;
 
-	if (!BearerToken) {
-		throw new Error(
-			'No Twitter BearerToken found in KV. Re-authentication may be required. Ensure initial login stores TWITTER_REFRESH_TOKEN_KV_KEY.'
-		);
+	if (!REFRESH_TOKEN) {
+		throw new Error('No Twitter REFRESH_TOKEN found in KV');
 	}
 
 	const params = new URLSearchParams();
-	params.append('refresh_token', BearerToken);
+	params.append('refresh_token', REFRESH_TOKEN);
 	params.append('grant_type', 'refresh_token');
-	params.append('client_id', env.TWITTER_CLIENT_ID);
+	params.append('client_id', client_id); // Client ID is in the body as per user's cURL
+	const authHeader = 'Basic ' + btoa(`${client_id}:${client_secret}`);
 
-	console.log('Attempting to refresh Twitter token using refresh_token.');
+	console.log(`Attempting to refresh Twitter token using the existing refresh_token...\nRequest body:${params.toString()}`);
 
-	const authHeader = 'Basic ' + btoa(env.TWITTER_CLIENT_ID + ':' + env.TWITTER_CLIENT_SECRET);
-
-	const res = await fetch('https://api.twitter.com/2/oauth2/token', {
-		// Corrected endpoint
+	const res = await fetch('https://api.x.com/2/oauth2/token', {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/x-www-form-urlencoded',
@@ -206,11 +273,11 @@ async function refreshTwitterTokens(env: Env): Promise<string> {
 	}
 
 	console.log('New Twitter Access Token obtained. Caching with expiration (seconds):', expiresIn);
-	await env.TWITTER_KV.put('BEARER_TOKEN', newAccessToken, { expirationTtl: expiresIn });
+	await env.TWITTER_KV.put('ACCESS_TOKEN', newAccessToken, { expirationTtl: expiresIn });
 
 	if (newRefreshToken) {
 		console.log('New Twitter Refresh Token also obtained. Updating in KV.');
-		await env.TWITTER_KV.put('BEARER_TOKEN', newRefreshToken);
+		await env.TWITTER_KV.put('REFRESH_TOKEN', newRefreshToken);
 	}
 
 	return newAccessToken;

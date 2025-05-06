@@ -7,31 +7,21 @@ const client_secret = process.env.client_secret;
 const refresh_token = process.env.refresh_token;
 
 async function refreshTwitterTokens() {
-  console.log(
-    "Retrieved existing Refresh Token from (mock) KV:",
-    refresh_token ? "Found" : "Not Found"
-  );
-
   if (!refresh_token) {
     throw new Error(
       "No existing Twitter Refresh Token found in (mock) KV. Ensure it's set in the script."
     );
   }
 
-  const authHeader = "Basic " + btoa(`${client_id}:${client_secret}`); // 使用模板字串和 btoa
-
   const params = new URLSearchParams();
   params.append("refresh_token", refresh_token);
   params.append("grant_type", "refresh_token");
   params.append("client_id", client_id); // Client ID is in the body as per user's cURL
+  const authHeader = "Basic " + btoa(`${client_id}:${client_secret}`);
 
   console.log(
-    "Attempting to refresh Twitter token using the existing refresh_token..."
+    `Attempting to refresh Twitter token using the existing refresh_token...\nRequest body:${params.toString()}`
   );
-  console.log("Request body:", params.toString());
-
-  // const authHeader =
-  //   "Basic " + btoa(env.TWITTER_CLIENT_ID + ":" + env.TWITTER_CLIENT_SECRET); // Removed as per user's cURL example
 
   const res = await fetch("https://api.x.com/2/oauth2/token", {
     method: "POST",
