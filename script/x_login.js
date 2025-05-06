@@ -30,7 +30,10 @@ app.get("/x/login", twitterAuthMiddleware, (c) => {
 // Twitter 授權後的回調路由
 app.get("/x/callback", twitterAuthMiddleware, async (c) => {
   const token = c.get("token");
-  console.log("完整的 token 物件:", token); // 記錄完整的 token 物件
+  const refreshToken = c.get("refresh-token");
+  console.log("token", token);
+  console.log("refresh-token", refreshToken);
+
   const query = c.req.query(); // Log query parameters for debugging
   console.log("Callback query parameters:", query);
 

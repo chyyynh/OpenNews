@@ -1,18 +1,15 @@
-const TWITTER_API_ENDPOINT = 'https://api.twitter.com/2/tweets';
-
 interface Env {
 	SUPABASE_URL: string;
 	SUPABASE_SERVICE_ROLE_KEY: string;
 	TELEGRAM_BOT_TOKEN: string;
 	TELEGRAM_CHAT_ID: string;
 	GEMINI_API_KEY: string;
-	TWITTER_BEARER_TOKEN: string;
 	TWITTER_CLIENT_ID: string;
 	TWITTER_CLIENT_SECRET: string;
 	TWITTER_KV: KVNamespace;
 }
 
-function splitContentIntoTweets(content: string, maxLength = 200): string[] {
+function splitContentIntoTweets(content: string, maxLength = 180): string[] {
 	const contentWithoutNewlines = content.replace(/\r?\n/g, ' ');
 	const words = contentWithoutNewlines.split(/\s+/).filter((word) => word.length > 0);
 
@@ -31,7 +28,7 @@ function splitContentIntoTweets(content: string, maxLength = 200): string[] {
 			} else {
 				chunks.push(word);
 				currentChunkWords = [];
-				continue; // 處理下一個單詞
+				continue;
 			}
 			currentChunkWords.push(word);
 		} else {
@@ -58,11 +55,11 @@ async function postSingleTweet(text: string, token: string, inReplyToId?: string
 		payload.reply = { in_reply_to_tweet_id: inReplyToId };
 	}
 
-	console.log('Posting tweet:', payload);
+	console.log('Posting tweet payload:', payload);
 
 	let response: Response;
 	try {
-		response = await fetch(TWITTER_API_ENDPOINT, {
+		response = await fetch('https://api.twitter.com/2/tweets', {
 			method: 'POST',
 			headers: {
 				Authorization: `Bearer ${token}`,
@@ -83,21 +80,27 @@ async function postSingleTweet(text: string, token: string, inReplyToId?: string
 	try {
 		responseBody = (await response.json()) as typeof responseBody;
 	} catch (parseErr) {
-		throw new Error(`Could not parse Twitter response JSON: ${String(parseErr)}`);
+		const responseText = await response.text().catch(() => 'Could not read response text');
+		throw new Error(
+			`Could not parse Twitter response JSON: ${String(parseErr)}. Response status: ${response.status}, text: ${responseText}`
+		);
 	}
 
 	const tweetId = responseBody?.data?.id;
-	console.log('Twitter response:', responseBody);
-	if (!tweetId) {
-		throw new Error('Tweet posted but no ID returned.');
+	console.log('Twitter response status:', response.status, 'body:', responseBody);
+	if (!response.ok || !tweetId) {
+		throw new Error(
+			`Tweet posting failed or no ID returned. Status: ${response.status}, Title: ${responseBody?.title}, Detail: ${responseBody?.detail}`
+		);
 	}
 
 	return tweetId;
 }
 
-export async function postThread(TWITTER_BEARER_TOKEN: string, content: string): Promise<string[]> {
-	if (!TWITTER_BEARER_TOKEN) {
-		throw new Error('TWITTER_BEARER_TOKEN is required but was empty.');
+export async function postThread(env: Env, content: string): Promise<string[]> {
+	const BearerToken = await getValidBearerToken(env);
+	if (!BearerToken) {
+		throw new Error('Failed to obtain a valid Twitter access token for posting thread.');
 	}
 
 	if (!content?.trim()) {
@@ -105,30 +108,22 @@ export async function postThread(TWITTER_BEARER_TOKEN: string, content: string):
 	}
 
 	const threads = splitContentIntoTweets(content);
-	const tweetsWithNumbering = threads.map((text, i) => {
-		const suffix = `${i + 1}/${threads.length}`;
-		if ((suffix + text).length > 280) {
-			return text.slice(0, 280 - suffix.length) + suffix;
-		}
-		return suffix + text;
-	});
-
 	console.log(`Splitting content into ${threads.length} tweet(s).`);
 
 	let replyToId: string | undefined;
 	const tweetIds: string[] = [];
 
-	for (let i = 0; i < tweetsWithNumbering.length; i++) {
-		const text = tweetsWithNumbering[i];
-		console.log(`Posting tweet ${i + 1}/${threads.length} replying ${replyToId}: \n"${text}" )`);
+	for (let i = 0; i < threads.length; i++) {
+		const text = threads[i]; // Use directly from splitContentIntoTweets
+		console.log(`Posting tweet ${i + 1}/${threads.length} replying to ${replyToId || 'N/A'}: \n"${text}"`);
 		try {
-			const tweetId = await postSingleTweet(text, TWITTER_BEARER_TOKEN, replyToId);
+			const tweetId = await postSingleTweet(text, BearerToken, replyToId);
 			console.log(`Tweet ${i + 1} posted successfully. ID: ${tweetId}`);
 			tweetIds.push(tweetId);
 			replyToId = tweetId;
 
-			if (i < tweetsWithNumbering.length - 1) {
-				await new Promise((res) => setTimeout(res, 1000));
+			if (i < threads.length - 1) {
+				await new Promise((res) => setTimeout(res, 1000)); // Delay between tweets
 			}
 		} catch (err) {
 			console.error(`Failed to post tweet ${i + 1}:`, err);
@@ -140,42 +135,83 @@ export async function postThread(TWITTER_BEARER_TOKEN: string, content: string):
 	return tweetIds;
 }
 
-/// --- Twitter Bearer Token Management ---
+/// --- Twitter Token Management ---
 
 export async function getValidBearerToken(env: Env): Promise<string> {
-	const cached = await env.TWITTER_KV.get('BEARER_TOKEN');
-	if (cached) return cached;
-	return await refreshTwitterBearerToken(env);
+	const BearerToken = await env.TWITTER_KV.get('BEARER_TOKEN');
+	console.log('Cached Access Token from KV:', BearerToken ? 'Found' : 'Not Found/Expired');
+
+	if (BearerToken) {
+		return BearerToken;
+	}
+
+	console.log('Bearer Token not found in KV or expired, attempting refresh.');
+	return await refreshTwitterTokens(env);
 }
 
-async function refreshTwitterBearerToken(env: Env): Promise<string> {
-	const params = new URLSearchParams();
-	const BEARER_TOKEN = await env.TWITTER_KV.get('BEARER_TOKEN');
-	if (!BEARER_TOKEN) {
-		throw new Error('BEARER_TOKEN is null or undefined.');
+async function refreshTwitterTokens(env: Env): Promise<string> {
+	const BearerToken = await env.TWITTER_KV.get('BEARER_TOKEN');
+	console.log('Retrieved Refresh Token from KV for refresh attempt:', BearerToken ? 'Found' : 'Not Found');
+
+	if (!BearerToken) {
+		throw new Error(
+			'No Twitter BearerToken found in KV. Re-authentication may be required. Ensure initial login stores TWITTER_REFRESH_TOKEN_KV_KEY.'
+		);
 	}
-	params.append('refresh_token', BEARER_TOKEN);
+
+	const params = new URLSearchParams();
+	params.append('refresh_token', BearerToken);
 	params.append('grant_type', 'refresh_token');
 	params.append('client_id', env.TWITTER_CLIENT_ID);
 
-	const res = await fetch('https://api.x.com/2/oauth2/token', {
+	console.log('Attempting to refresh Twitter token using refresh_token.');
+
+	const authHeader = 'Basic ' + btoa(env.TWITTER_CLIENT_ID + ':' + env.TWITTER_CLIENT_SECRET);
+
+	const res = await fetch('https://api.twitter.com/2/oauth2/token', {
+		// Corrected endpoint
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/x-www-form-urlencoded',
+			Authorization: authHeader,
 		},
 		body: params.toString(),
 	});
 
 	if (!res.ok) {
-		const errorText = await res.text().catch(() => 'Could not read error response');
+		const errorText = await res.text().catch(() => 'Could not read error response body');
+		console.error(`Failed to refresh Twitter access token. Status: ${res.status}, Response: ${errorText}`);
+		if (res.status === 400 || res.status === 401) {
+			// Bad request or Unauthorized
+			console.log('Refresh token might be invalid or revoked. Clearing it from KV to prevent loops.');
+			await env.TWITTER_KV.delete('BEARER_TOKEN');
+		}
 		throw new Error(`Failed to refresh Twitter access token: ${res.status} ${res.statusText} - ${errorText}`);
 	}
 
-	const data = (await res.json()) as { access_token: string; expires_in?: number };
+	const data = (await res.json()) as {
+		access_token: string;
+		refresh_token?: string;
+		expires_in?: number;
+		token_type?: string;
+	};
+
 	const newAccessToken = data.access_token;
+	const newRefreshToken = data.refresh_token;
 	const expiresIn = data.expires_in || 3600;
 
+	if (!newAccessToken || data.token_type?.toLowerCase() !== 'bearer') {
+		console.error('Refresh response did not include a valid bearer access_token:', data);
+		throw new Error('Failed to obtain new valid access token from refresh response.');
+	}
+
+	console.log('New Twitter Access Token obtained. Caching with expiration (seconds):', expiresIn);
 	await env.TWITTER_KV.put('BEARER_TOKEN', newAccessToken, { expirationTtl: expiresIn });
-	console.log('New Twitter Bearer token cached with expiration:', expiresIn);
+
+	if (newRefreshToken) {
+		console.log('New Twitter Refresh Token also obtained. Updating in KV.');
+		await env.TWITTER_KV.put('BEARER_TOKEN', newRefreshToken);
+	}
+
 	return newAccessToken;
 }

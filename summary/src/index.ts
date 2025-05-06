@@ -8,9 +8,8 @@ interface Env {
 	TELEGRAM_BOT_TOKEN: string;
 	TELEGRAM_CHAT_ID: string;
 	GEMINI_API_KEY: string;
-	TWITTER_BEARER_TOKEN: string;
-	TWITTER_CLINENT_ID: string;
-	TWITTER_CLINENT_SECRET: string;
+	TWITTER_CLIENT_ID: string;
+	TWITTER_CLIENT_SECRET: string;
 	TWITTER_KV: KVNamespace;
 }
 
@@ -78,9 +77,7 @@ export default {
 			console.log('telegram: AI Daily report sent successfully');
 
 			// --- Twitter Posting ---
-			const twitterBearerToken = await getValidBearerToken(env);
-
-			await postThread(twitterBearerToken, finalReport);
+			await postThread(env, finalReport);
 			console.log('twitter: AI Daily report sent successfully');
 		} catch (aiError) {
 			console.error('Error during AI summarization or sending:', aiError);
