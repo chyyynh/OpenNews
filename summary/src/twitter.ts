@@ -1,3 +1,5 @@
+import twitterText from 'twitter-text';
+
 interface Env {
 	SUPABASE_URL: string;
 	SUPABASE_SERVICE_ROLE_KEY: string;
@@ -9,114 +11,43 @@ interface Env {
 	TWITTER_KV: KVNamespace;
 }
 
-function splitContentIntoTweets(content: string, maxLength = 280): string[] {
+export function splitContentIntoTweets(content: string, maxLength = 280): string[] {
 	const finalTweets: string[] = [];
-	// Estimate length for numbering like " (XX/YY)" -> ~7-8 chars. Let's use 8.
-	const estimatedNumberingLength = 8;
-
-	// Split by one or more double newlines to get paragraphs
 	const paragraphs = content.split(/\n\n+/).filter((p) => p.trim() !== '');
 
-	for (const paragraph of paragraphs) {
-		// Max length for the text part of the tweet
-		const effectiveMaxLength = maxLength - estimatedNumberingLength;
+	console.log(`Splitting content into paragraphs. Total paragraphs: ${paragraphs.length}`);
 
-		// If paragraph (plus numbering) fits, add it as is
-		if (paragraph.length <= effectiveMaxLength) {
-			finalTweets.push(paragraph);
+	for (let i = 0; i < paragraphs.length; i++) {
+		let currentTweet: string = paragraphs[i];
+		let parsedCurrent = twitterText.parseTweet(currentTweet);
+
+		if (parsedCurrent.weightedLength > maxLength) {
+			// 處理單一段落超長的情況 例如：截斷、報錯、或者直接推送（如果業務邏輯允許）
+			console.warn(`Warning: Single paragraph is too long. Weighted length: ${parsedCurrent.weightedLength}\nContent: ${currentTweet}`);
+			finalTweets.push(currentTweet); // 或者采取其他措施
 			continue;
 		}
 
-		// Paragraph is too long, needs further splitting.
-		// We'll try to build lines and then combine lines into tweets.
-		const lines = paragraph.split('\n');
-		let currentTweetLines: string[] = [];
-		let currentTweetLength = 0;
+		while (i + 1 < paragraphs.length) {
+			const nextParagraph = paragraphs[i + 1];
+			const potentialTweet = currentTweet + '\n' + nextParagraph;
+			const parsedPotential = twitterText.parseTweet(potentialTweet);
 
-		for (let i = 0; i < lines.length; i++) {
-			const line = lines[i];
-
-			// If the line itself is too long, it needs to be broken by words.
-			if (line.length > effectiveMaxLength) {
-				// Add any accumulated lines before processing this very long line
-				if (currentTweetLines.length > 0) {
-					finalTweets.push(currentTweetLines.join('\n'));
-					currentTweetLines = [];
-					currentTweetLength = 0;
-				}
-
-				const words = line.split(/(\s+)/); // Split by whitespace, keeping it
-				let currentSubLine = '';
-				for (const word of words) {
-					if (currentSubLine.length + word.length <= effectiveMaxLength) {
-						currentSubLine += word;
-					} else {
-						if (currentSubLine.trim().length > 0) finalTweets.push(currentSubLine.trim());
-						currentSubLine = word.trimStart(); // Start new sub-line
-						// If a single word is too long, it will be pushed as is and truncated later by numbering.
-						if (currentSubLine.length > effectiveMaxLength) {
-							finalTweets.push(currentSubLine.substring(0, effectiveMaxLength));
-							currentSubLine = currentSubLine.substring(effectiveMaxLength);
-						}
-					}
-				}
-				if (currentSubLine.trim().length > 0) finalTweets.push(currentSubLine.trim());
-				continue; // Move to the next line in the paragraph
-			}
-
-			// Check if adding this line (plus a newline char if not the first line in current tweet) exceeds length
-			const potentialNewLineLength = line.length + (currentTweetLines.length > 0 ? 1 : 0);
-
-			if (currentTweetLength + potentialNewLineLength <= effectiveMaxLength) {
-				currentTweetLines.push(line);
-				currentTweetLength += potentialNewLineLength;
+			// 檢查合併後的推文是否有效，並且加權長度不超過限制
+			if (parsedPotential.valid && parsedPotential.weightedLength <= maxLength) {
+				currentTweet = potentialTweet;
+				i++; // 成功合併，移動到下一個段落
 			} else {
-				// Current tweet is full, push it
-				if (currentTweetLines.length > 0) {
-					finalTweets.push(currentTweetLines.join('\n'));
-				}
-				// Start a new tweet with the current line
-				currentTweetLines = [line];
-				currentTweetLength = line.length;
+				// 如果合併後超長或無效，則停止合併當前推文
+				break;
 			}
 		}
-
-		// Add any remaining lines for the current paragraph
-		if (currentTweetLines.length > 0) {
-			finalTweets.push(currentTweetLines.join('\n'));
-		}
+		const finalParsedTweet = twitterText.parseTweet(currentTweet);
+		console.log(`Tweet generated: weightedLength:${finalParsedTweet.weightedLength}, valid:${finalParsedTweet.valid}\n${currentTweet}`);
+		finalTweets.push(currentTweet);
 	}
 
-	// Filter out any empty strings that might have been added
-	const nonEmptyTweets = finalTweets.filter((t) => t.trim() !== '');
-
-	// Add numbering
-	const totalTweets = nonEmptyTweets.length;
-	if (totalTweets === 0) return [];
-
-	// If only one tweet and it fits without numbering, or fits with numbering, return it.
-	if (totalTweets === 1) {
-		const singleTweet = nonEmptyTweets[0];
-		const numbering = ` (1/1)`;
-		if (singleTweet.length <= maxLength - numbering.length) {
-			return [singleTweet + numbering]; // Add numbering even for single tweet for consistency
-		} else if (singleTweet.length <= maxLength) {
-			return [singleTweet]; // Fits as is, no space for numbering
-		}
-		// If it's too long even for a single tweet, truncate with ellipsis (no numbering)
-		return [singleTweet.substring(0, maxLength - 3) + '...'];
-	}
-
-	return nonEmptyTweets.map((tweet, index) => {
-		const numbering = ` (${index + 1}/${totalTweets})`;
-		let tweetText = tweet;
-		if (tweetText.length + numbering.length > maxLength) {
-			// Truncate tweetText to make space for numbering and ellipsis
-			const availableLength = maxLength - numbering.length - 3; // -3 for "..."
-			tweetText = tweetText.substring(0, availableLength < 0 ? 0 : availableLength) + '...';
-		}
-		return tweetText + numbering;
-	});
+	return finalTweets;
 }
 
 async function postSingleTweet(text: string, token: string, inReplyToId?: string): Promise<string> {

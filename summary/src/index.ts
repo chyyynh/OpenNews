@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
-import { sendMessageToTelegram, summarizeWithGemini, postToTwitter } from './utils';
-import { postThread, getValidAccessToken } from './twitter';
+import { sendMessageToTelegram, summarizeWithGemini } from './utils';
+import { postThread } from './twitter';
 
 interface Env {
 	SUPABASE_URL: string;
