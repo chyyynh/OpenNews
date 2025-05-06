@@ -12,7 +12,7 @@ interface Env {
 	TWITTER_KV: KVNamespace;
 }
 
-function splitContentIntoTweets(content: string, maxLength = 250): string[] {
+function splitContentIntoTweets(content: string, maxLength = 200): string[] {
 	const contentWithoutNewlines = content.replace(/\r?\n/g, ' ');
 	const words = contentWithoutNewlines.split(/\s+/).filter((word) => word.length > 0);
 
