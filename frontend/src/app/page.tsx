@@ -145,7 +145,7 @@ export default function Home(props: { searchParams: Promise<SearchParams> }) {
                     {" "}
                     {/* Added mt-2 for spacing */}
                     <span>
-                      Published:{" "}
+                      Published:
                       {new Date(item.published_date).toLocaleDateString()}
                     </span>
                     {item.tags && item.tags.length > 0 && (

@@ -15,7 +15,7 @@ export function splitContentIntoTweets(content: string, maxLength = 280): string
 	const finalTweets: string[] = [];
 	const paragraphs = content.split(/\n\n+/).filter((p) => p.trim() !== '');
 
-	console.log(`Splitting content into paragraphs. Total paragraphs: ${paragraphs.length}`);
+	// console.log(`Splitting content into paragraphs. Total paragraphs: ${paragraphs.length}`);
 
 	for (let i = 0; i < paragraphs.length; i++) {
 		let currentTweet: string = paragraphs[i];
@@ -43,7 +43,7 @@ export function splitContentIntoTweets(content: string, maxLength = 280): string
 			}
 		}
 		const finalParsedTweet = twitterText.parseTweet(currentTweet);
-		console.log(`Tweet generated: weightedLength:${finalParsedTweet.weightedLength}, valid:${finalParsedTweet.valid}\n${currentTweet}`);
+		// console.log(`Tweet generated: weightedLength:${finalParsedTweet.weightedLength}, valid:${finalParsedTweet.valid}\n${currentTweet}`);
 		finalTweets.push(currentTweet);
 	}
 
@@ -142,8 +142,10 @@ export async function getValidAccessToken(env: Env): Promise<string> {
 	const ACCESS_TOKEN = await env.TWITTER_KV.get('ACCESS_TOKEN');
 	console.log('Cached Access Token from KV:', ACCESS_TOKEN ? 'Found' : 'Not Found/Expired');
 
+	return await refreshTwitterTokens(env);
+
 	if (ACCESS_TOKEN) {
-		return ACCESS_TOKEN;
+		return await refreshTwitterTokens(env);
 	}
 
 	console.log('Bearer Token not found in KV or expired, attempting refresh.');
@@ -153,6 +155,7 @@ export async function getValidAccessToken(env: Env): Promise<string> {
 async function refreshTwitterTokens(env: Env): Promise<string> {
 	const REFRESH_TOKEN = await env.TWITTER_KV.get('REFRESH_TOKEN');
 	const client_id = env.TWITTER_CLIENT_ID;
+	console.log('Client ID:', client_id);
 	const client_secret = env.TWITTER_CLIENT_SECRET;
 
 	if (!REFRESH_TOKEN) {

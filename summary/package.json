@@ -10,14 +10,14 @@
 		"test": "vitest run"
 	},
 	"devDependencies": {
-		"@cloudflare/workers-types": "^4.20250405.0",
+		"@cloudflare/workers-types": "^4.20250506.0",
 		"@types/bun": "^1.2.12",
 		"@types/jest": "^29.5.14",
 		"@types/twitter-text": "^3.1.10",
 		"jest": "^29.7.0",
 		"ts-jest": "^29.3.2",
 		"typescript": "^5.8.3",
-		"wrangler": "^4.8.0"
+		"wrangler": "^4.14.1"
 	},
 	"dependencies": {
 		"@google/generative-ai": "^0.24.0",
