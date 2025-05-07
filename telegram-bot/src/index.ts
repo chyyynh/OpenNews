@@ -60,34 +60,26 @@ export default {
 			const chatId = payload.callback_query.from.id;
 			const tag = payload.callback_query.data.replace('tag:', '');
 
-			const { data: existingData, error: selectError } = await supabase
-				.from('users_subtags')
-				.select('subtags')
-				.eq('chatId', chatId)
-				.single();
+			const { data: existing, error: selectError } = await supabase.from('users_subtags').select('subtags').eq('chatId', chatId).single();
 
-			if (selectError) {
-				console.error('Error fetching data:', selectError);
+			if (selectError && selectError.code !== 'PGRST116') {
+				// 非 "no rows returned" 的錯誤，處理錯誤
+				console.error('Error selecting user:', selectError);
 				return;
 			}
 
-			// Step 2: 更新 subtags，將新的 tag 加入現有的 subtags 陣列
-			const updatedSubtags = existingData.subtags
-				? [...new Set([...existingData.subtags, tag])] // 使用 Set 去重，防止重複 tag
-				: [tag]; // 如果是新用戶，直接設定為該 tag
-
-			// Step 3: 使用 upsert 更新資料
-			const { data, error } = await supabase.from('users_subtags').upsert([
-				{
-					chatId: chatId,
-					subtags: updatedSubtags,
-				},
-			]);
-
-			if (error) {
-				console.error('Error inserting or updating data:', error);
+			if (existing) {
+				// 已存在，更新 subtags（合併新的 tag）
+				const updatedSubtags = [...new Set([...existing.subtags, tag])];
+				await supabase.from('users_subtags').update({ subtags: updatedSubtags }).eq('chatId', chatId);
 			} else {
-				console.log('Data successfully inserted/updated:', data);
+				// 不存在，插入新的紀錄
+				await supabase.from('users_subtags').insert([
+					{
+						chatId: chatId,
+						subtags: [tag],
+					},
+				]);
 			}
 
 			// 回覆使用者
