@@ -7,12 +7,14 @@ interface SendToTwitterButtonProps {
   articleTitle: string;
   articleUrl: string;
   articleSummary: string | null;
+  customPrompt?: string; // Optional custom prompt
 }
 
 export function SendToTwitterButton({
   articleTitle,
   articleUrl,
   articleSummary,
+  customPrompt,
 }: SendToTwitterButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +33,7 @@ export function SendToTwitterButton({
           title: articleTitle,
           url: articleUrl,
           summary: articleSummary,
+          customPrompt: customPrompt || null,
         }),
       });
 

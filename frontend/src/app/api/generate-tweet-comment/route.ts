@@ -9,7 +9,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { title, url, summary } = body;
+    const { title, url, summary, customPrompt } = body;
 
     if (!title || !url) {
       return NextResponse.json(
@@ -21,10 +21,11 @@ export async function POST(request: Request) {
     // --- Placeholder for Gemini API Call ---
     // Replace this with your actual Gemini API call logic.
     // Ensure you handle API key security appropriately (e.g., environment variables).
-    console.log("Received for Gemini:", { title, url, summary });
+    console.log("Received for Gemini:", { title, url, summary, customPrompt });
 
     // Example prompt structure (adjust as needed for Gemini 1.5 Flash)
     const prompt = `請針對以下新聞使用 "繁體中文" 撰寫一則適合發布在 Twitter 上的評論（限 200 字內) 不要附上連結
+      ${customPrompt}
       標題: ${title}
       摘要: ${summary || "No summary available."}
       連結: ${url}`;

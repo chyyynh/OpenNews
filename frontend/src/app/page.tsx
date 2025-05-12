@@ -1,9 +1,13 @@
+"use client";
+
 import { createClient, PostgrestError } from "@supabase/supabase-js";
 import Link from "next/link";
 import { use } from "react";
 import { Button } from "@/components/ui/button";
-import { RefreshOnNewArticle } from "@/components/RefreshOnNewArticle"; // 假設你放這路徑
+import { Textarea } from "@/components/ui/textarea";
+
 import { SendToTwitterButton } from "@/components/SendToTwitterButton";
+// import { RefreshOnNewArticle } from "@/components/RefreshOnNewArticle"; // 假設你放這路徑
 
 interface ArticleItem {
   id: number;
@@ -104,7 +108,7 @@ export default function Home(props: { searchParams: Promise<SearchParams> }) {
 
   return (
     <div className="container mx-auto p-4 sm:p-8 font-[family-name:var(--font-geist-sans)]">
-      <RefreshOnNewArticle />
+      {/* <RefreshOnNewArticle /> */}
 
       <header className="mb-8">
         <h1 className="text-3xl font-bold text-center sm:text-left">
@@ -162,6 +166,7 @@ export default function Home(props: { searchParams: Promise<SearchParams> }) {
                     articleTitle={item.title}
                     articleUrl={item.url}
                     articleSummary={item.summary}
+                    customPrompt={`請用孫子兵法的語氣`}
                   />
                 </li>
               ))}
@@ -182,6 +187,10 @@ export default function Home(props: { searchParams: Promise<SearchParams> }) {
 
         {/* Right Column (Tag Filters) */}
         <aside className="md:col-span-1 border-l md:pl-6">
+          <div className="grid w-full gap-2 mb-4">
+            <Textarea placeholder="Type your Custom Prompt here." />
+            <Button>Save Prompt</Button>
+          </div>
           <h2 className="text-xl font-semibold mb-4">Filter by Tag</h2>
           <div className="flex flex-wrap gap-2">
             {/* "All Tags" button clears selection */}
