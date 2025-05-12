@@ -8,10 +8,13 @@ support RSS & websocket, frontend including web & tgbot
 
 ## Feature
 
-- send summary to twitter by oauth2 access token
-- auto refresh twitter access token
+### Front End
 
-## CF Worker
+- login with supabase auth
+- get twitter post with custom prompt and send to twitter
 
-- rss-feed-monitor: monitor RSS link every 5 min
-- summary: summary by AI and send to twitter/telegram
+### CF Worker
+
+1. rss-feed-monitor: monitor RSS link every 5 min
+2. summary: summary by AI and send to twitter/telegram, X access token auto refresh, send summary to twitter by oauth2 access token
+3. telegram-bot: tg bot server for selecting news topics

@@ -87,27 +87,27 @@ export async function summarizeWithGemini(
 		let prompt = '';
 		if (style === 'Sun Tzu') {
 			prompt = `吾乃軍師，請分析以下敵情（Crypto 新聞），以《孫子兵法》之慧，言簡意賅，提煉精要，洞察機遇與風險，呈報軍情摘要。
-摘要須控制在 500 字元內，仿孫子口吻，點明關鍵事件、涉及之代幣及情報來源。
+				摘要須控制在 500 字元內，仿孫子口吻，點明關鍵事件、涉及之代幣及情報來源。
 
-敵情列表：
----
-${articlesForPrompt}
----
+				敵情列表：
+				---
+				${articlesForPrompt}
+				---
 
-軍師，請速呈報：`;
+				軍師，請速呈報：`;
 			console.log('Using Sun Tzu style prompt.');
 		} else {
 			// Default prompt
 			prompt = `請根據以下 Crypto 新聞文章列表，產生一份簡潔的中文摘要報告。
-目標是總結當天的主要新聞亮點，並確保最終報告的總長度嚴格控制在 500 個字元以內。
-請保留重要的資訊，例如主要事件、涉及的幣種和來源。
+				目標是總結當天的主要新聞亮點，並確保最終報告的總長度嚴格控制在 500 個字元以內。
+				請保留重要的資訊，例如主要事件、涉及的幣種和來源。
 
-新聞列表：
----
-${articlesForPrompt}
----
+				新聞列表：
+				---
+				${articlesForPrompt}
+				---
 
-請生成摘要報告：`;
+				請生成摘要報告：`;
 			console.log('Using default summary prompt.');
 		}
 		// --- End Prompt Construction ---
