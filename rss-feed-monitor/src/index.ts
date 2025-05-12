@@ -43,20 +43,21 @@ async function processAndInsertArticle(supabase: any, env: Env, item: any, feed?
 		content: crawled_content,
 	};
 
-	const tweetText = encodeURIComponent(ai_summary);
-	const tweetUrl = encodeURIComponent(url);
-	const twitterPostLink = `https://twitter.com/intent/tweet?text=${tweetText}&url=${tweetUrl}`;
-
 	const { error: insertError } = await supabase.from('articles').insert([insert]);
 
 	if (insertError) {
 		console.error(`[${feed.name}] Insert error:`, insertError);
 	} else {
 		const aiCommentary = await CommentByAI(item.title || item.text, summary, env.GEMINI_API_KEY);
+		const tweetText = encodeURIComponent(aiCommentary);
+		const tweetUrl = encodeURIComponent(url);
+		const twitterIntentUrl = `https://twitter.com/intent/tweet?text=${tweetText}&url=${tweetUrl}`;
+		const twitterPostLink = `[Send to Twitter](${twitterIntentUrl})`;
 		await sendMessageToTelegram(
 			env.TELEGRAM_BOT_TOKEN,
 			env.TELEGRAM_CHAT_ID,
-			`${aiCommentary}\n${feed.name}:${item.title || item.text || item.news_title}\n\n${ai_summary}\n\n${url}\n\n${twitterPostLink}`
+			`${aiCommentary}\n${feed.name}:${item.title || item.text || item.news_title}\n\n${ai_summary}\n\n${url}\n\n${twitterPostLink}`,
+			{ parse_mode: 'Markdown' }
 		);
 		console.log(`[${feed.name}] New article: ${item.title || item.text} tags ${JSON.stringify(tags)}`);
 	}
@@ -66,7 +67,7 @@ const CommentByAI = async (title: string, summary: string, apiKey: string) => {
 	const genAI = new GoogleGenAI({ apiKey });
 	const response = await genAI.models.generateContent({
 		model: 'gemini-1.5-flash',
-		contents: `你是穿越時空的炒幣 degen 孫子兵法裡的孫武, 請用最多兩段文字盡可能簡潔的評論這則新聞: ${title} ${summary}`,
+		contents: `你是穿越時空的炒幣 degen 孫子兵法裡的孫武, 請用 1-3 句話盡可能簡潔的評論這則新聞: ${title} ${summary}`,
 	});
 	const text = response.text ?? '';
 	return text;

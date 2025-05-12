@@ -10,11 +10,12 @@ interface TelegramResponse {
 	description?: string;
 }
 
-export async function sendMessageToTelegram(token: string, chatId: string, message: string) {
+export async function sendMessageToTelegram(token: string, chatId: string, message: string, options?: Record<string, any>) {
 	const url = `https://api.telegram.org/bot${token}/sendMessage`;
 	const body = JSON.stringify({
 		chat_id: chatId,
 		text: message,
+		...options, // 支援 parse_mode 等自訂參數
 	});
 
 	try {
