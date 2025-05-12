@@ -3,6 +3,7 @@ import Link from "next/link";
 import { use } from "react";
 import { Button } from "@/components/ui/button";
 import { RefreshOnNewArticle } from "@/components/RefreshOnNewArticle"; // 假設你放這路徑
+import { SendToTwitterButton } from "@/components/SendToTwitterButton";
 
 interface ArticleItem {
   id: number;
@@ -157,6 +158,11 @@ export default function Home(props: { searchParams: Promise<SearchParams> }) {
                       </span>
                     )}
                   </div>
+                  <SendToTwitterButton
+                    articleTitle={item.title}
+                    articleUrl={item.url}
+                    articleSummary={item.summary}
+                  />
                 </li>
               ))}
             </ul>

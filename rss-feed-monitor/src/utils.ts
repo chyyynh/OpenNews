@@ -12,11 +12,12 @@ interface TelegramResponse {
 
 export async function sendMessageToTelegram(token: string, chatId: string, message: string, options?: Record<string, any>) {
 	const url = `https://api.telegram.org/bot${token}/sendMessage`;
-	const body = JSON.stringify({
+
+	const body: any = {
 		chat_id: chatId,
 		text: message,
-		...options, // 支援 parse_mode 等自訂參數
-	});
+		...options,
+	};
 
 	try {
 		const response = await fetch(url, {
@@ -24,7 +25,7 @@ export async function sendMessageToTelegram(token: string, chatId: string, messa
 			headers: {
 				'Content-Type': 'application/json',
 			},
-			body,
+			body: JSON.stringify(body),
 		});
 
 		if (!response.ok) {
