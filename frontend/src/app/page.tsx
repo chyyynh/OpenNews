@@ -2,6 +2,7 @@ import { createClient, PostgrestError } from "@supabase/supabase-js";
 import Link from "next/link";
 import { use } from "react";
 import { Button } from "@/components/ui/button";
+import { RefreshOnNewArticle } from "@/components/RefreshOnNewArticle"; // 假設你放這路徑
 
 interface ArticleItem {
   id: number;
@@ -102,6 +103,8 @@ export default function Home(props: { searchParams: Promise<SearchParams> }) {
 
   return (
     <div className="container mx-auto p-4 sm:p-8 font-[family-name:var(--font-geist-sans)]">
+      <RefreshOnNewArticle />
+
       <header className="mb-8">
         <h1 className="text-3xl font-bold text-center sm:text-left">
           Latest News{" "}
