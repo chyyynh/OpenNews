@@ -1,5 +1,3 @@
-"use client";
-
 import { createClient, PostgrestError } from "@supabase/supabase-js";
 import Link from "next/link";
 import { use } from "react";
@@ -188,7 +186,7 @@ export default function Home(props: { searchParams: Promise<SearchParams> }) {
         {/* Right Column (Tag Filters) */}
         <aside className="md:col-span-1 border-l md:pl-6">
           <div className="grid w-full gap-2 mb-4">
-            <Textarea placeholder="Type your Custom Prompt here." />
+            <Textarea placeholder="Custom Prompt in Development" disabled />
             <Button>Save Prompt</Button>
           </div>
           <h2 className="text-xl font-semibold mb-4">Filter by Tag</h2>
