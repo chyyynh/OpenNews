@@ -11,9 +11,11 @@ const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabase = createClient(SUPABASE_URL, supabaseServiceRoleKey);
 
 function isValidTelegramAuth(data: any, botToken: string): boolean {
-  const { hash, auth_date, first_name, id, username } = data;
-  console.log("API: /auth/telegram/verify receive data:", data);
-  const sortedData = `auth_date=${auth_date}\nfirst_name=${first_name}\nid=${id}\nusername=${username}`;
+  const { hash, ...dataToSign } = data;
+  const sortedData = Object.keys(dataToSign)
+    .sort()
+    .map((key) => `${key}=${dataToSign[key]}`)
+    .join("\n");
 
   const secret = crypto.createHash("sha256").update(botToken).digest();
   const hmac = crypto
@@ -28,6 +30,7 @@ export async function POST(req: NextRequest) {
   const telegramUser = await req.json();
 
   const isValid = isValidTelegramAuth(telegramUser, TELEGRAM_BOT_TOKEN);
+  console.log("isValidTelegramAuth", isValid);
   if (!isValid) {
     return NextResponse.json(
       { error: "Invalid Telegram login" },
