@@ -19,7 +19,7 @@ const TelegramLoginButton: React.FC = () => {
   const scriptContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME;
+    const botUsername = "OpenNews_bot";
     if (!botUsername) {
       console.error("NEXT_PUBLIC_TELEGRAM_BOT_USERNAME is not set.");
       setError(
@@ -34,7 +34,7 @@ const TelegramLoginButton: React.FC = () => {
       setError(null);
       console.log("Telegram user data received on client:", user);
       try {
-        const response = await fetch("/api/auth/telegram/verify", {
+        const response = await fetch("/api/auth/telegram/", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(user),
