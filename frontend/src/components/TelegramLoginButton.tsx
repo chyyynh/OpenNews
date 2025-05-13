@@ -4,10 +4,8 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation"; // Import for redirection
 import { createClient } from "@supabase/supabase-js";
+import Script from "next/script"; // Import Next.js Script component
 
-// Initialize Supabase client (consider moving to a shared lib if not already)
-// This is for potential use with setSession if API returns full session data.
-// For now, it's not strictly used in this component's current logic.
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
@@ -124,34 +122,22 @@ const TelegramLoginButton: React.FC = () => {
 
   return (
     <>
-      {/* This div is where the Telegram script will render the button */}
-      <div>
-        <script
-          async
+      <div id="telegram-login-container">
+        <Script
           src="https://telegram.org/js/telegram-widget.js?22"
+          strategy="afterInteractive" // Load after the page becomes interactive
           data-telegram-login="OpenNews_bot"
           data-size="large"
-          data-onauth="triggerReactAuth(user)" // Calls our new global intermediary
+          data-onauth="triggerReactAuth(user)"
           data-request-access="write"
-        ></script>
+          onLoad={() => {
+            console.log("Telegram widget script loaded successfully.");
+          }}
+          onError={(e) => {
+            console.error("Error loading Telegram widget script:", e);
+          }}
+        />
       </div>
-      <script
-        type="text/javascript"
-        dangerouslySetInnerHTML={{
-          __html: `
-            function triggerReactAuth(user) {
-              // This function is called by the Telegram widget
-              // console.log('Telegram user data received by triggerReactAuth:', user);
-              // alert('Logged in as ' + user.first_name + ' ' + user.last_name + ' (' + user.id + (user.username ? ', @' + user.username : '') + ')');
-              if (window.onTelegramAuthCallback) {
-                window.onTelegramAuthCallback(user);
-              } else {
-                console.error('onTelegramAuthCallback is not defined on window. React component might not be mounted or callback not set.');
-              }
-            }
-          `,
-        }}
-      ></script>
       {isLoading && <p>Logging in with Telegram...</p>}
       {error && <p style={{ color: "red" }}>Error: {error}</p>}
       {supabaseUser && (
