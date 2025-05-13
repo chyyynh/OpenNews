@@ -52,7 +52,7 @@ const TelegramLoginButton: React.FC = () => {
         // TODO: Store session/user context here if needed immediately on client
         // For now, just redirecting.
         // We might want to redirect to where the user was trying to go, or a default like /kol-admin
-        router.push("/kol-admin"); // Redirect to KOL admin page after successful login
+        router.push("/"); // Redirect to KOL admin page after successful login
       } catch (err: unknown) {
         console.error("Error during Telegram auth verification:", err);
         const errorMessage =
