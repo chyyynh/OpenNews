@@ -1,154 +1,112 @@
 // component/TelegramLoginButton.tsx
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation"; // Import for redirection
-import { createClient } from "@supabase/supabase-js";
-import Script from "next/script"; // Import Next.js Script component
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-interface SupabaseUser {
-  id: string;
-  user_metadata?: {
-    telegram_username?: string;
-    // Add other potential user_metadata fields here
-  };
-  // Add other top-level user fields if known (e.g., email, created_at)
-}
-
-interface TelegramUserData {
-  id: number;
-  first_name?: string;
-  last_name?: string;
-  username?: string;
-  photo_url?: string;
-  auth_date: number;
-  hash: string;
-}
+import React, { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation"; // For navigation after login
+import { toast } from "sonner";
+import type { TelegramUserAuth } from "../types/telegram"; // Adjust path if necessary
 
 declare global {
   interface Window {
-    onTelegramAuth?: (user: TelegramUserData) => void;
-    onTelegramAuthCallback?: (user: TelegramUserData) => Promise<void>;
+    onTelegramAuth?: (user: TelegramUserAuth) => void;
   }
 }
 
 const TelegramLoginButton: React.FC = () => {
-  const router = useRouter(); // Initialize router
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null); // To store Supabase user info
+  const scriptContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleTelegramLogin = async (telegramUser: TelegramUserData) => {
+    const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME;
+    if (!botUsername) {
+      console.error("NEXT_PUBLIC_TELEGRAM_BOT_USERNAME is not set.");
+      setError(
+        "Telegram login is not configured correctly. (Admin: Check bot username ENV var)"
+      );
+      return;
+    }
+
+    // Define the callback function that Telegram will call
+    window.onTelegramAuth = async (user: TelegramUserAuth) => {
       setIsLoading(true);
       setError(null);
-      setSupabaseUser(null);
-      console.log("Telegram user data received by React:", telegramUser);
-
+      console.log("Telegram user data received on client:", user);
       try {
-        const response = await fetch("/api/auth/telegram", {
+        const response = await fetch("/api/auth/telegram/verify", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(telegramUser),
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(user),
         });
 
         const result = await response.json();
 
-        if (!response.ok) {
+        if (!response.ok || !result.success) {
           throw new Error(
-            result.error || `API request failed with status ${response.status}`
+            result.error || "Verification failed. Please try again."
           );
         }
 
-        console.log("Supabase auth successful, API result:", result);
-
-        if (result.access_token && result.refresh_token) {
-          const { error: sessionError } = await supabase.auth.setSession({
-            access_token: result.access_token,
-            refresh_token: result.refresh_token,
-          });
-
-          if (sessionError) {
-            console.error("Failed to set Supabase session:", sessionError);
-            throw new Error(
-              `Failed to set Supabase session: ${sessionError.message}`
-            );
-          }
-          console.log("Supabase session set successfully on the client.");
-          // After setting session, result.user should ideally be the user for this session.
-          // Or, you could fetch the user fresh: const { data: { user } } = await supabase.auth.getUser();
-          setSupabaseUser(result.user); // Assuming result.user is the correct user object
-          alert(
-            `Successfully authenticated with Supabase via Telegram! User ID: ${result.user?.id}`
-          );
-        } else if (result.user) {
-          // Fallback if tokens are not provided but user info is (e.g., backend handles session entirely)
-          setSupabaseUser(result.user);
-          alert(
-            `Successfully authenticated (user info only) via Telegram! User ID: ${result.user?.id}`
-          );
-        } else {
-          throw new Error(
-            "Authentication response did not include session tokens or user data."
-          );
-        }
-
-        router.push("/"); // Redirect to home page
-      } catch (err) {
-        console.error("Error during Telegram auth with backend:", err);
+        toast.success(result.message || "Login successful!");
+        // TODO: Store session/user context here if needed immediately on client
+        // For now, just redirecting.
+        // We might want to redirect to where the user was trying to go, or a default like /kol-admin
+        router.push("/kol-admin"); // Redirect to KOL admin page after successful login
+      } catch (err: unknown) {
+        console.error("Error during Telegram auth verification:", err);
         const errorMessage =
-          err instanceof Error ? err.message : "An unknown error occurred";
+          err instanceof Error
+            ? err.message
+            : "An unexpected error occurred during login.";
         setError(errorMessage);
-        alert(`Error: ${errorMessage}`); // Consider a less intrusive error display
+        toast.error(errorMessage);
       } finally {
         setIsLoading(false);
       }
     };
 
-    // Assign the handler to a global callback function
-    window.onTelegramAuthCallback = handleTelegramLogin;
+    // Create the script element
+    const script = document.createElement("script");
+    script.src = "https://telegram.org/js/telegram-widget.js?22";
+    script.async = true;
+    script.setAttribute("data-telegram-login", botUsername);
+    script.setAttribute("data-size", "large");
+    // script.setAttribute('data-radius', '10'); // Example: Customize button appearance
+    script.setAttribute("data-onauth", "onTelegramAuth(user)"); // Call our window function
+    // script.setAttribute('data-request-access', 'write'); // To request permission to write to the user
 
-    // Cleanup
+    if (scriptContainerRef.current) {
+      scriptContainerRef.current.appendChild(script);
+    }
+
+    // Cleanup function to remove the script and window function when the component unmounts
     return () => {
-      delete window.onTelegramAuthCallback;
+      if (scriptContainerRef.current) {
+        // Find and remove the iframe Telegram injects, if any
+        const iframe = scriptContainerRef.current.querySelector("iframe");
+        if (iframe) {
+          scriptContainerRef.current.removeChild(iframe);
+        }
+        // Remove the script itself, though the iframe is the main visible part
+        if (script.parentNode === scriptContainerRef.current) {
+          scriptContainerRef.current.removeChild(script);
+        }
+      }
+      delete window.onTelegramAuth;
     };
-  }, [router, setIsLoading, setError, setSupabaseUser]);
+  }, [router]); // Add router to dependency array if used in cleanup, though not strictly needed here
 
   return (
-    <>
-      <div id="telegram-login-container">
-        <Script
-          src="https://telegram.org/js/telegram-widget.js?22"
-          strategy="afterInteractive" // Load after the page becomes interactive
-          data-telegram-login="OpenNews_bot"
-          data-size="large"
-          data-onauth="triggerReactAuth(user)"
-          data-request-access="write"
-          onLoad={() => {
-            console.log("Telegram widget script loaded successfully.");
-          }}
-          onError={(e) => {
-            console.error("Error loading Telegram widget script:", e);
-          }}
-        />
-      </div>
-      {isLoading && <p>Logging in with Telegram...</p>}
-      {error && <p style={{ color: "red" }}>Error: {error}</p>}
-      {supabaseUser && (
-        <div style={{ marginTop: "10px", fontSize: "0.8em" }}>
-          <p>Supabase User ID: {supabaseUser.id}</p>
-          {supabaseUser.user_metadata?.telegram_username && (
-            <p>Logged in as: @{supabaseUser.user_metadata.telegram_username}</p>
-          )}
-        </div>
+    <div className="flex flex-col items-center">
+      {isLoading && (
+        <p className="text-sm text-muted-foreground">Processing login...</p>
       )}
-    </>
+      {error && <p className="text-sm text-destructive py-2">Error: {error}</p>}
+      {/* The Telegram script will inject the button into this div (or based on its own logic) */}
+      {/* We use a ref to ensure we control where it attempts to inject and can clean it up */}
+      <div ref={scriptContainerRef} id="telegram-login-container"></div>
+    </div>
   );
 };
 
