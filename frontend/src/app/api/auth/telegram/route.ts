@@ -11,27 +11,37 @@ const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 const supabase = createClient(SUPABASE_URL, supabaseServiceRoleKey);
 
+interface TelegramAuthData {
+  id: number;
+  first_name?: string;
+  last_name?: string;
+  username?: string;
+  photo_url?: string;
+  auth_date: number;
+  hash: string;
+  [key: string]: string | number | boolean | undefined; // More specific than any
+}
+
 function isValidTelegramAuth(
-  data: Record<string, any>,
+  data: TelegramAuthData,
   botToken: string
 ): boolean {
-  const checkHash = data.hash;
-  const authData = { ...data };
-  delete authData.hash;
+  const { hash, ...dataToSign } = data; // Destructure hash and the rest of the properties
 
-  const sortedData = Object.keys(authData)
+  // Process dataToSign (which doesn't include hash)
+  const sortedData = Object.keys(dataToSign)
     .sort()
-    .map((key) => `${key}=${authData[key]}`)
+    .map((key) => `${key}=${dataToSign[key]}`) // Access properties from dataToSign
     .join("\n");
 
   const secret = crypto.createHash("sha256").update(botToken).digest();
 
-  const cryptoHmac = require("crypto")
+  const hmac = crypto
     .createHmac("sha256", secret)
     .update(sortedData)
     .digest("hex");
 
-  return cryptoHmac === checkHash;
+  return hmac === hash; // Compare with the destructured hash
 }
 
 export async function POST(req: NextRequest) {
@@ -57,7 +67,7 @@ export async function POST(req: NextRequest) {
     .eq("telegram_id", telegramUser.id)
     .single();
 
-  let userId: string;
+  // let userId: string; // userId was defined but never used.
 
   if (!userExists) {
     // create user metadata

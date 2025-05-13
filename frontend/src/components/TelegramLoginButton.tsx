@@ -34,6 +34,7 @@ interface TelegramUserData {
 declare global {
   interface Window {
     onTelegramAuth?: (user: TelegramUserData) => void;
+    onTelegramAuthCallback?: (user: TelegramUserData) => Promise<void>;
   }
 }
 
@@ -113,11 +114,11 @@ const TelegramLoginButton: React.FC = () => {
     };
 
     // Assign the handler to a global callback function
-    (window as any).onTelegramAuthCallback = handleTelegramLogin;
+    window.onTelegramAuthCallback = handleTelegramLogin;
 
     // Cleanup
     return () => {
-      delete (window as any).onTelegramAuthCallback;
+      delete window.onTelegramAuthCallback;
     };
   }, [router, setIsLoading, setError, setSupabaseUser]);
 
