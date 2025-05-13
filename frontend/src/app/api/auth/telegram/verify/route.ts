@@ -27,8 +27,9 @@ function isValidTelegramAuth(data: any, botToken: string): boolean {
 }
 
 export async function POST(req: NextRequest) {
-  const telegramUser = await req.json();
   try {
+    const telegramUser = await req.json();
+
     const isValid = isValidTelegramAuth(telegramUser, TELEGRAM_BOT_TOKEN);
     console.log("isValidTelegramAuth", isValid);
     if (!isValid) {
@@ -37,56 +38,65 @@ export async function POST(req: NextRequest) {
         { status: 403 }
       );
     }
+
+    const fakeEmail = `tg_${telegramUser.id}@telegram.local`;
+
+    const { data: userExists, error: fetchError } = await supabase
+      .from("telegram_users")
+      .select("*")
+      .eq("telegram_id", telegramUser.id)
+      .single();
+
+    if (fetchError && fetchError.code !== "PGRST116") {
+      throw new Error(`Supabase fetch error: ${fetchError.message}`);
+    }
+
+    if (!userExists) {
+      const { error: insertError } = await supabase
+        .from("telegram_users")
+        .insert({
+          telegram_id: telegramUser.id,
+          username: telegramUser.username,
+          custom_prompt: "",
+          topics: [],
+        });
+      if (insertError)
+        throw new Error(`Supabase insert error: ${insertError.message}`);
+    }
+
+    const token = jwt.sign(
+      {
+        sub: `telegram_${telegramUser.id}`,
+        email: fakeEmail,
+        role: "authenticated",
+        exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7,
+        user_metadata: {
+          telegram_id: telegramUser.id,
+          username: telegramUser.username,
+          first_name: telegramUser.first_name,
+          last_name: telegramUser.last_name,
+          photo_url: telegramUser.photo_url,
+        },
+      },
+      SUPABASE_JWT_SECRET
+    );
+
+    return NextResponse.json({
+      access_token: token,
+      refresh_token: null,
+      user: {
+        id: `telegram_${telegramUser.id}`,
+        email: fakeEmail,
+      },
+    });
   } catch (err: any) {
     console.error("Telegram login error:", err);
     return NextResponse.json(
-      { error: "Internal Server Error", details: err.message },
+      {
+        error: "Internal Server Error",
+        message: err.message || "Unknown error",
+      },
       { status: 500 }
     );
   }
-
-  const fakeEmail = `tg_${telegramUser.id}@telegram.local`;
-
-  // 查詢或創建 Telegram user 資料表（非必須）
-  const { data: userExists } = await supabase
-    .from("telegram_users")
-    .select("*")
-    .eq("telegram_id", telegramUser.id)
-    .single();
-
-  if (!userExists) {
-    await supabase.from("telegram_users").insert({
-      telegram_id: telegramUser.id,
-      username: telegramUser.username,
-      custom_prompt: "",
-      topics: [],
-    });
-  }
-
-  // 產生 JWT token 給 Supabase Auth 使用
-  const token = jwt.sign(
-    {
-      sub: `telegram_${telegramUser.id}`,
-      email: fakeEmail,
-      role: "authenticated",
-      exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7,
-      user_metadata: {
-        telegram_id: telegramUser.id,
-        username: telegramUser.username,
-        first_name: telegramUser.first_name,
-        last_name: telegramUser.last_name,
-        photo_url: telegramUser.photo_url,
-      },
-    },
-    SUPABASE_JWT_SECRET
-  );
-
-  return NextResponse.json({
-    access_token: token,
-    refresh_token: null,
-    user: {
-      id: `telegram_${telegramUser.id}`,
-      email: fakeEmail,
-    },
-  });
 }
