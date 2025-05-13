@@ -34,7 +34,7 @@ const TelegramLoginButton: React.FC = () => {
       setError(null);
       console.log("Telegram user data received on client:", user);
       try {
-        const response = await fetch("/api/auth/telegram/", {
+        const response = await fetch("/api/auth/telegram/verify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(user),
