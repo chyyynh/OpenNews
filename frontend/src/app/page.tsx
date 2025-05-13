@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
 import { SendToTwitterButton } from "@/components/SendToTwitterButton";
+import TelegramLoginButton from "@/components/TelegramLoginButton"; // Import the new component
 // import { RefreshOnNewArticle } from "@/components/RefreshOnNewArticle"; // 假設你放這路徑
 
 interface ArticleItem {
@@ -108,11 +109,12 @@ export default function Home(props: { searchParams: Promise<SearchParams> }) {
     <div className="container mx-auto p-4 sm:p-8 font-[family-name:var(--font-geist-sans)]">
       {/* <RefreshOnNewArticle /> */}
 
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold text-center sm:text-left">
+      <header className="mb-8 flex flex-col sm:flex-row justify-between items-center">
+        <h1 className="text-3xl font-bold text-center sm:text-left mb-4 sm:mb-0">
           Latest News{" "}
           {selectedTags.length > 0 ? ` - Tags: ${selectedTags.join(", ")}` : ""}
         </h1>
+        <TelegramLoginButton />
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
