@@ -1,6 +1,6 @@
 # OpenNews
 
-[Website Demo](https://open-news-psi.vercel.app/) | [Telegram Link](https://t.me/OpenNews_bot)
+[Website Demo](https://open-news-psi.vercel.app/) | [Telegram Link](https://t.me/OpenNews_bot) | [Twitter Demo](https://x.com/artofcryptowar)
 
 A crypto news Telegram bot that lets users choose what they care about — from specific tokens to niche sectors like DeFi, NFTs, or onchain gaming.
 
