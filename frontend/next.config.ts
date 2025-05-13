@@ -4,25 +4,25 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        source: "/(.*)", // 這會應用於所有路徑
+        source: "/(.*)",
         headers: [
           {
             key: "Content-Security-Policy",
-            value: "script-src 'self' https://telegram.org;", // 允許來自 Telegram 網站的腳本
+            value: `
+              default-src 'self';
+              script-src 'self' https://telegram.org 'unsafe-inline';
+              connect-src 'self' https://api.telegram.org https://*.supabase.co;
+              img-src 'self' https://t.me data:;
+              style-src 'self' 'unsafe-inline';
+              frame-src https://telegram.org;
+            `
+              .replace(/\s{2,}/g, " ")
+              .trim(),
           },
         ],
       },
     ];
   },
-
-  // 如果你需要強制 HTTPS，可以添加如下設定：
-  // images: {
-  //   domains: ['your-allowed-domain.com'],
-  // },
-
-  reactStrictMode: true, // 設置嚴格模式，可以根據需要開啟或關閉
-
-  // 更多的 Next.js 設置根據需要添加
 };
 
 export default nextConfig;
