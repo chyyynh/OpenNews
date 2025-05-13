@@ -28,13 +28,20 @@ function isValidTelegramAuth(data: any, botToken: string): boolean {
 
 export async function POST(req: NextRequest) {
   const telegramUser = await req.json();
-
-  const isValid = isValidTelegramAuth(telegramUser, TELEGRAM_BOT_TOKEN);
-  console.log("isValidTelegramAuth", isValid);
-  if (!isValid) {
+  try {
+    const isValid = isValidTelegramAuth(telegramUser, TELEGRAM_BOT_TOKEN);
+    console.log("isValidTelegramAuth", isValid);
+    if (!isValid) {
+      return NextResponse.json(
+        { error: "Invalid Telegram login" },
+        { status: 403 }
+      );
+    }
+  } catch (err: any) {
+    console.error("Telegram login error:", err);
     return NextResponse.json(
-      { error: "Invalid Telegram login" },
-      { status: 403 }
+      { error: "Internal Server Error", details: err.message },
+      { status: 500 }
     );
   }
 
