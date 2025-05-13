@@ -1,11 +1,14 @@
-import { createClient, PostgrestError } from "@supabase/supabase-js";
+"use client"; // Make this a client component
+
+import { createClient, PostgrestError, User } from "@supabase/supabase-js";
 import Link from "next/link";
-import { use } from "react";
+import { use, useEffect, useState } from "react"; // Import useEffect, useState
+import { useRouter } from "next/navigation"; // Import for redirection
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
 import { SendToTwitterButton } from "@/components/SendToTwitterButton";
-import TelegramLoginButton from "@/components/TelegramLoginButton"; // Import the new component
+// import TelegramLoginButton from "@/components/TelegramLoginButton"; // No longer imported here
 // import { RefreshOnNewArticle } from "@/components/RefreshOnNewArticle"; // 假設你放這路徑
 
 interface ArticleItem {
@@ -81,17 +84,88 @@ async function getArticles(
 
 type SearchParams = { [key: string]: string | string[] | undefined };
 
-// Page component is now synchronous (no 'async' keyword)
+// Page component
 export default function Home(props: { searchParams: Promise<SearchParams> }) {
-  const searchParams = use(props.searchParams);
+  const router = useRouter();
+  const [user, setUser] = useState<User | null>(null);
+  const [loadingAuth, setLoadingAuth] = useState(true);
+
+  useEffect(() => {
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setUser(session?.user ?? null);
+        setLoadingAuth(false);
+        if (
+          event === "SIGNED_OUT" ||
+          (!session && event !== "INITIAL_SESSION")
+        ) {
+          router.push("/login");
+        }
+      }
+    );
+
+    // Check initial session
+    const checkSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      setUser(session?.user ?? null);
+      setLoadingAuth(false);
+      if (!session) {
+        router.push("/login");
+      }
+    };
+    checkSession();
+
+    return () => {
+      authListener.subscription?.unsubscribe();
+    };
+  }, [router]);
+
+  const searchParams = use(props.searchParams); // This might need adjustment if it causes issues
   // Read multiple tags from the 'tags' query parameter
   const selectedTagsString =
     typeof searchParams?.tags === "string" ? searchParams.tags : "";
   const selectedTags = selectedTagsString ? selectedTagsString.split(",") : [];
 
   // Resolve data fetching promises using the async functions
+  // These `use` calls might be problematic if `getTags` or `getArticles` are not stable
+  // or if they trigger re-renders that conflict with the auth flow.
+  // For now, keeping them to see if they work.
   const tags = use(getTags());
   const { articles, error: fetchError } = use(getArticles(selectedTags));
+
+  if (loadingAuth) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100vh",
+        }}
+      >
+        Loading authentication...
+      </div>
+    );
+  }
+
+  if (!user) {
+    // This case should ideally be handled by the redirect in useEffect,
+    // but as a fallback or if redirect hasn't happened yet.
+    return (
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100vh",
+        }}
+      >
+        Redirecting to login...
+      </div>
+    );
+  }
 
   // Helper function to generate the href for tag toggling
   const getToggleTagHref = (tag: string): string => {
@@ -109,12 +183,12 @@ export default function Home(props: { searchParams: Promise<SearchParams> }) {
     <div className="container mx-auto p-4 sm:p-8 font-[family-name:var(--font-geist-sans)]">
       {/* <RefreshOnNewArticle /> */}
 
-      <header className="mb-8 flex flex-col sm:flex-row justify-between items-center">
-        <h1 className="text-3xl font-bold text-center sm:text-left mb-4 sm:mb-0">
+      <header className="mb-8">
+        <h1 className="text-3xl font-bold text-center sm:text-left">
           Latest News{" "}
           {selectedTags.length > 0 ? ` - Tags: ${selectedTags.join(", ")}` : ""}
         </h1>
-        <TelegramLoginButton />
+        {/* TelegramLoginButton removed from here */}
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">

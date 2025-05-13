@@ -1,14 +1,23 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { createClient } from "@supabase/supabase-js"; // Import Supabase client
+import { useRouter } from "next/navigation"; // Import for redirection
 
 // Initialize Supabase client (consider moving to a shared lib if not already)
 // This is for potential use with setSession if API returns full session data.
 // For now, it's not strictly used in this component's current logic.
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+// const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+// const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+interface SupabaseUser {
+  id: string;
+  user_metadata?: {
+    telegram_username?: string;
+    // Add other potential user_metadata fields here
+  };
+  // Add other top-level user fields if known (e.g., email, created_at)
+}
 
 interface TelegramUserData {
   id: number;
@@ -28,9 +37,10 @@ declare global {
 
 const TelegramLoginButton: React.FC = () => {
   const scriptContainerRef = useRef<HTMLDivElement>(null);
+  const router = useRouter(); // Initialize router
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [supabaseUser, setSupabaseUser] = useState<any | null>(null); // To store Supabase user info
+  const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null); // To store Supabase user info
 
   useEffect(() => {
     // Define the callback function and attach it to the window object
@@ -64,7 +74,8 @@ const TelegramLoginButton: React.FC = () => {
         );
         // TODO: If API returned session tokens (access_token, refresh_token), use them:
         // await supabase.auth.setSession({ access_token: result.access_token, refresh_token: result.refresh_token });
-        // And then perhaps redirect or update UI state.
+        // For now, just redirect after successful backend auth.
+        router.push("/"); // Redirect to home page
       } catch (err) {
         console.error("Error during Telegram auth with backend:", err);
         const errorMessage =
@@ -85,18 +96,19 @@ const TelegramLoginButton: React.FC = () => {
     script.setAttribute("data-request-access", "write");
 
     // Append the script to the container div
-    if (scriptContainerRef.current) {
-      scriptContainerRef.current.appendChild(script);
+    const currentScriptContainer = scriptContainerRef.current;
+    if (currentScriptContainer) {
+      currentScriptContainer.appendChild(script);
     }
 
     // Cleanup function to remove the script and the callback
     return () => {
-      if (scriptContainerRef.current) {
-        scriptContainerRef.current.innerHTML = ""; // Remove the script and button
+      if (currentScriptContainer) {
+        currentScriptContainer.innerHTML = ""; // Remove the script and button
       }
       delete window.onTelegramAuth;
     };
-  }, []); // Empty dependency array means this effect runs once on mount and cleans up on unmount
+  }, [router]); // Add router to dependency array
 
   return (
     <div>

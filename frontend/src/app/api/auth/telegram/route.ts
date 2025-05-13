@@ -27,8 +27,7 @@ function verifyTelegramAuth(
 ): string {
   const dataCheckArr = [];
   for (const key in data) {
-    // @ts-ignore
-    dataCheckArr.push(`${key}=${data[key]}`);
+    dataCheckArr.push(`${key}=${data[key as keyof typeof data]}`);
   }
   dataCheckArr.sort();
   const dataCheckString = dataCheckArr.join("\n");
@@ -91,7 +90,7 @@ export async function POST(req: NextRequest) {
     // This example assumes you might store telegram_id in user_metadata
     // A more robust way is to have a separate 'identities' table or use Supabase's built-in identity linking if possible.
 
-    let { data: existingUser, error: findError } = await supabaseAdmin
+    const { data: existingUser, error: findError } = await supabaseAdmin
       .from("users")
       .select("*")
       .eq("raw_user_meta_data->>telegram_id", telegramId) // Example: query metadata
