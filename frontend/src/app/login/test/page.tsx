@@ -1,13 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { createClient } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 export default function TelegramLogin() {
   const router = useRouter();
@@ -45,18 +39,11 @@ export default function TelegramLogin() {
         return alert("登入失敗，無效的登入資料。");
       }
 
-      // 登入 Supabase
-      const { error } = await supabase.auth.signInWithIdToken({
-        provider: "telegram",
-        token: data.token, // 使用從 API 取得的 token
-      });
+      // 儲存 token 並進行後續操作
+      localStorage.setItem("telegram_token", data.token);
 
-      if (error) {
-        console.error("Supabase login error", error.message);
-        alert("登入 Supabase 失敗");
-      } else {
-        router.push("/"); // ✅ 登入後導向你要的頁面
-      }
+      // 導向到首頁或其他頁面
+      router.push("/"); // ✅ 登入後導向你要的頁面
     };
   }, []);
 

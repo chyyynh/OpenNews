@@ -1,125 +1,68 @@
-// /app/api/auth/telegram/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import jwt from "jsonwebtoken";
 import crypto from "crypto";
 
+// Telegram Bot Token，用於驗證
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
-const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET!;
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-const supabase = createClient(SUPABASE_URL, supabaseServiceRoleKey);
-
-interface TelegramAuthData {
-  id: number;
-  first_name?: string;
-  last_name?: string;
-  username?: string;
-  photo_url?: string;
-  auth_date: number;
-  hash: string;
-  [key: string]: string | number | boolean | undefined; // More specific than any
-}
-
-function isValidTelegramAuth(
-  data: TelegramAuthData,
-  botToken: string
-): boolean {
-  const { hash, ...dataToSign } = data; // Destructure hash and the rest of the properties
-
-  // Process dataToSign (which doesn't include hash)
+function isValidTelegramAuth(data: any, botToken: string): boolean {
+  const { hash, ...dataToSign } = data;
   const sortedData = Object.keys(dataToSign)
     .sort()
-    .map((key) => `${key}=${dataToSign[key]}`) // Access properties from dataToSign
+    .map((key) => `${key}=${dataToSign[key]}`)
     .join("\n");
 
   const secret = crypto.createHash("sha256").update(botToken).digest();
-
   const hmac = crypto
     .createHmac("sha256", secret)
     .update(sortedData)
     .digest("hex");
 
-  return hmac === hash; // Compare with the destructured hash
+  return hmac === hash;
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
-  const telegramUser = body;
+  try {
+    const telegramUser = await req.json();
 
-  // 1. 驗證 Telegram hash
-  const isValid = isValidTelegramAuth(telegramUser, TELEGRAM_BOT_TOKEN);
-  if (!isValid) {
-    return NextResponse.json(
-      { error: "Invalid Telegram login" },
-      { status: 403 }
-    );
-  }
+    if (!telegramUser || !telegramUser.id || !telegramUser.hash) {
+      return NextResponse.json(
+        { error: "Missing telegram user fields" },
+        { status: 400 }
+      );
+    }
 
-  // 2. 建立 "假的" Email
-  const fakeEmail = `tg_${telegramUser.id}@telegram.local`;
+    // 驗證 Telegram 登入資料
+    const isValid = isValidTelegramAuth(telegramUser, TELEGRAM_BOT_TOKEN);
+    if (!isValid) {
+      return NextResponse.json(
+        { error: "Invalid Telegram login" },
+        { status: 403 }
+      );
+    }
 
-  // 3. 查詢或創建 user
-  const { data: userExists } = await supabase
-    .from("telegram_users")
-    .select("*")
-    .eq("telegram_id", telegramUser.id)
-    .single();
-
-  // let userId: string; // userId was defined but never used.
-
-  if (!userExists) {
-    // create user metadata
-    const payload = {
-      sub: `tg_${telegramUser.id}`,
-      email: fakeEmail,
-      role: "authenticated",
-      exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7, // 一週
-      user_metadata: {
-        telegram_id: telegramUser.id,
-        username: telegramUser.username,
-        first_name: telegramUser.first_name,
-        last_name: telegramUser.last_name,
-        photo_url: telegramUser.photo_url,
-      },
-    };
-
-    // 4. 產生 JWT token
-    const token = jwt.sign(payload, SUPABASE_JWT_SECRET);
-
-    // 5. 寫入 user 資料到自定義表
-    await supabase.from("telegram_users").insert({
+    // 根據 Telegram 資料生成一個自訂的 JWT，這個會作為後續 API 的驗證 token
+    const telegramUserData = {
+      sub: `telegram_${telegramUser.id}`,
       telegram_id: telegramUser.id,
       username: telegramUser.username,
-      custom_prompt: "",
-      topics: [],
-    });
-
-    return NextResponse.json({
-      access_token: token,
-      refresh_token: null,
-      user: {
-        id: `tg_${telegramUser.id}`,
-        email: fakeEmail,
-      },
-    });
-  } else {
-    // 如果已存在，就直接產生 token
-    const payload = {
-      sub: `tg_${telegramUser.id}`,
-      email: fakeEmail,
-      role: "authenticated",
-      exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7,
+      first_name: telegramUser.first_name,
+      last_name: telegramUser.last_name,
+      photo_url: telegramUser.photo_url,
     };
-    const token = jwt.sign(payload, SUPABASE_JWT_SECRET);
-    return NextResponse.json({
-      access_token: token,
-      refresh_token: null,
-      user: {
-        id: `tg_${telegramUser.id}`,
-        email: fakeEmail,
-      },
-    });
+
+    // 使用 JWT 簽名來生成一個 token
+    const token = crypto.randomBytes(64).toString("hex"); // 這裡簡單地生成一個隨機 token 作為範例，你可以根據需求生成更多信息
+
+    // 回傳生成的 token
+    return NextResponse.json({ token });
+  } catch (err: any) {
+    console.error("Telegram login error:", err);
+    return new NextResponse(
+      JSON.stringify({ error: err.message || "Unknown error" }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   }
 }
