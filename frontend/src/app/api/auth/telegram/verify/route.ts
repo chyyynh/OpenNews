@@ -1,4 +1,4 @@
-// /app/api/auth/telegram/route.ts
+// /app/api/auth/telegram/verify/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";

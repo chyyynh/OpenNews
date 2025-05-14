@@ -1,4 +1,3 @@
-// /app/(auth)/telegram-login.tsx
 "use client";
 
 import { useEffect } from "react";
@@ -33,24 +32,23 @@ export default function TelegramLogin() {
       });
 
       if (!res.ok) {
-        const errorText = await res.text();
+        const errorText = await res.text(); // 處理錯誤回應
         console.error("伺服器錯誤：", errorText);
         return alert("伺服器錯誤，請稍後再試。");
       }
 
-      const { token } = await res.json();
-      if (!token) return alert("登入失敗");
+      const data = await res.json(); // 解析回應資料
 
-      const data = await res.json();
       if (!data.token) {
-        console.error("登入失敗，無有效 token", data);
+        // 檢查是否有 token
+        console.error("登入失敗，無效的登入資料", data);
         return alert("登入失敗，無效的登入資料。");
       }
 
       // 登入 Supabase
       const { error } = await supabase.auth.signInWithIdToken({
         provider: "telegram",
-        token,
+        token: data.token, // 使用從 API 取得的 token
       });
 
       if (error) {
