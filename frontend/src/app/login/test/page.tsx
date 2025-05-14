@@ -26,7 +26,7 @@ export default function TelegramLogin() {
 
     // 定義 Telegram callback
     (window as any).onTelegramAuth = async (user: any) => {
-      const res = await fetch("/api/auth/telegram", {
+      const res = await fetch("/api/auth/telegram/verify", {
         method: "POST",
         body: JSON.stringify(user),
         headers: { "Content-Type": "application/json" },
