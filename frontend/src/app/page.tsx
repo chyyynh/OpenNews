@@ -230,7 +230,7 @@ export default function Home() {
       setSaveSuccess(true);
 
       // 使用 sonner 的 toast
-      toast.success("自定義 Prompt 已更新，所有文章将使用新的 Prompt");
+      toast.success("自定義 Prompt 已更新，所有文章將使用新的 Prompt");
 
       // 重置成功状态
       setTimeout(() => {
@@ -244,7 +244,7 @@ export default function Home() {
       <header className="mb-8">
         <h1 className="text-3xl font-bold text-center sm:text-left">
           Latest News{" "}
-          {selectedTags.length > 0 ? ` - 标签: ${selectedTags.join(", ")}` : ""}
+          {selectedTags.length > 0 ? ` - 標籤: ${selectedTags.join(", ")}` : ""}
         </h1>
       </header>
 

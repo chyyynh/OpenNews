@@ -1,14 +1,10 @@
 // /app/api/auth/telegram/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
 const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET!;
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(SUPABASE_URL, supabaseServiceRoleKey);
 
 function isValidTelegramAuth(data: any, botToken: string): boolean {
   const { hash, ...dataToSign } = data;
@@ -31,7 +27,6 @@ export async function POST(req: NextRequest) {
     const telegramUser = await req.json();
 
     const isValid = isValidTelegramAuth(telegramUser, TELEGRAM_BOT_TOKEN);
-    console.log("isValidTelegramAuth", isValid);
     if (!isValid) {
       return NextResponse.json(
         { error: "Invalid Telegram login" },
@@ -41,35 +36,12 @@ export async function POST(req: NextRequest) {
 
     const fakeEmail = `tg_${telegramUser.id}@telegram.local`;
 
-    const { data: userExists, error: fetchError } = await supabase
-      .from("telegram_users")
-      .select("*")
-      .eq("telegram_id", telegramUser.id)
-      .single();
-
-    if (fetchError && fetchError.code !== "PGRST116") {
-      throw new Error(`Supabase fetch error: ${fetchError.message}`);
-    }
-
-    if (!userExists) {
-      const { error: insertError } = await supabase
-        .from("telegram_users")
-        .insert({
-          telegram_id: telegramUser.id,
-          username: telegramUser.username,
-          custom_prompt: "",
-          topics: [],
-        });
-      if (insertError)
-        throw new Error(`Supabase insert error: ${insertError.message}`);
-    }
-
-    const token = jwt.sign(
+    // 🔐 用來 sign 給 Supabase 的 JWT，對應 signInWithIdToken
+    const jwtForSupabase = jwt.sign(
       {
-        sub: `telegram_${telegramUser.id}`,
+        sub: `telegram_${telegramUser.id}`, // 對應 user.id
         email: fakeEmail,
         role: "authenticated",
-        exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7,
         user_metadata: {
           telegram_id: telegramUser.id,
           username: telegramUser.username,
@@ -78,25 +50,13 @@ export async function POST(req: NextRequest) {
           photo_url: telegramUser.photo_url,
         },
       },
-      SUPABASE_JWT_SECRET
+      SUPABASE_JWT_SECRET,
+      { expiresIn: "7d" }
     );
 
-    return NextResponse.json({
-      access_token: token,
-      refresh_token: null,
-      user: {
-        id: `telegram_${telegramUser.id}`,
-        email: fakeEmail,
-      },
-    });
+    return NextResponse.json({ token: jwtForSupabase });
   } catch (err: any) {
     console.error("Telegram login error:", err);
-    return NextResponse.json(
-      {
-        error: "Internal Server Error",
-        message: err.message || "Unknown error",
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
