@@ -32,11 +32,23 @@ export default function TelegramLogin() {
         headers: { "Content-Type": "application/json" },
       });
 
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("伺服器錯誤：", errorText);
+        return alert("伺服器錯誤，請稍後再試。");
+      }
+
       const { token } = await res.json();
       if (!token) return alert("登入失敗");
 
+      const data = await res.json();
+      if (!data.token) {
+        console.error("登入失敗，無有效 token", data);
+        return alert("登入失敗，無效的登入資料。");
+      }
+
       // 登入 Supabase
-      const { data, error } = await supabase.auth.signInWithIdToken({
+      const { error } = await supabase.auth.signInWithIdToken({
         provider: "telegram",
         token,
       });

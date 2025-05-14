@@ -26,6 +26,13 @@ export async function POST(req: NextRequest) {
   try {
     const telegramUser = await req.json();
 
+    if (!telegramUser || !telegramUser.id || !telegramUser.hash) {
+      return NextResponse.json(
+        { error: "Missing telegram user fields" },
+        { status: 400 }
+      );
+    }
+
     const isValid = isValidTelegramAuth(telegramUser, TELEGRAM_BOT_TOKEN);
     if (!isValid) {
       return NextResponse.json(
@@ -36,10 +43,9 @@ export async function POST(req: NextRequest) {
 
     const fakeEmail = `tg_${telegramUser.id}@telegram.local`;
 
-    // 🔐 用來 sign 給 Supabase 的 JWT，對應 signInWithIdToken
     const jwtForSupabase = jwt.sign(
       {
-        sub: `telegram_${telegramUser.id}`, // 對應 user.id
+        sub: `telegram_${telegramUser.id}`,
         email: fakeEmail,
         role: "authenticated",
         user_metadata: {
@@ -57,6 +63,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ token: jwtForSupabase });
   } catch (err: any) {
     console.error("Telegram login error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+
+    return new NextResponse(
+      JSON.stringify({ error: err.message || "Unknown error" }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   }
 }
