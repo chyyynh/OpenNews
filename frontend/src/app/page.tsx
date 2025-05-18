@@ -345,7 +345,12 @@ export default function Home() {
               )}
             </Button>
           </div>
-          <h2 className="text-xl font-semibold mb-4">按標籤篩選</h2>
+          <hr className="mb-4"></hr>
+
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold">更改追蹤標籤</h2>
+            <Button>儲存新聞偏好</Button>
+          </div>
           <div className="flex flex-wrap gap-2">
             {/* "所有标签"按钮清除选择 */}
             <Link href="/" passHref>
