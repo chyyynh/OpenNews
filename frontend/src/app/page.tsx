@@ -318,7 +318,7 @@ export default function Home() {
         </main>
 
         {/* 右列（标签过滤器） */}
-        <aside className="md:col-span-1 border-l md:pl-6">
+        <aside className="md:col-span-1 border-l md:pl-6 md:sticky md:top-8 md:self-start md:max-h-screen md:overflow-y-auto">
           <div className="grid w-full gap-2 mb-4">
             <Textarea
               placeholder="載入自定義提示詞..."
