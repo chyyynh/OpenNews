@@ -1,17 +1,21 @@
 "use client";
 
-import {
-  createClient,
-  type PostgrestError,
-  type User,
-} from "@supabase/supabase-js";
+import { createClient, type PostgrestError } from "@supabase/supabase-js";
 import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Loader, Check } from "lucide-react";
+import { Loader, Check, LogOut, UserIcon } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import TelegramLoginButton from "@/components/TelegramLoginButton";
 
 import { SendToTwitterButton } from "@/components/SendToTwitterButton";
 
@@ -22,6 +26,16 @@ interface ArticleItem {
   published_date: string;
   tags: string[];
   summary: string | null;
+}
+
+interface TelegramUser {
+  id: number;
+  first_name: string;
+  last_name?: string;
+  username?: string;
+  photo_url?: string;
+  auth_date: number;
+  hash: string;
 }
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -35,13 +49,17 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// Telegram bot name - replace with your bot name
+const TELEGRAM_BOT_NAME = "YourBotName";
+
 // 页面组件
 export default function Home() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  // 移除 useToast 钩子
-  const [user, setUser] = useState<User | null>(null);
-  const [loadingAuth, setLoadingAuth] = useState(true);
+
+  // 使用 Telegram 用户替代 Supabase 用户
+  const [user, setUser] = useState<TelegramUser | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(false);
 
   // 添加保存状态
   const [isSaving, setIsSaving] = useState(false);
@@ -56,6 +74,7 @@ export default function Home() {
     useState<string>("請用孫子兵法的語氣");
   const [tempCustomPrompt, setTempCustomPrompt] =
     useState<string>("請用孫子兵法的語氣"); // 临时存储编辑中的提示
+  const [isSavingPreferences, setIsSavingPreferences] = useState(false);
 
   // 从 URL 获取选定的标签 - 使用 useSearchParams，但使用useMemo或useRef来避免不必要的重新计算
   // 使用useCallback来记忆这个值，避免每次渲染都重新计算
@@ -101,6 +120,28 @@ export default function Home() {
     }
 
     fetchTags();
+
+    // 检查本地存储中是否有保存的用户信息
+    const savedUser = localStorage.getItem("telegramUser");
+    if (savedUser) {
+      try {
+        const parsedUser = JSON.parse(savedUser);
+        // 检查认证是否过期（24小时）
+        const authDate = parsedUser.auth_date * 1000; // 转换为毫秒
+        const now = Date.now();
+        const oneDay = 24 * 60 * 60 * 1000; // 24小时（毫秒）
+
+        if (now - authDate < oneDay) {
+          setUser(parsedUser);
+        } else {
+          // 认证已过期，清除本地存储
+          localStorage.removeItem("telegramUser");
+        }
+      } catch (e) {
+        console.error("解析保存的用户信息时出错:", e);
+        localStorage.removeItem("telegramUser");
+      }
+    }
 
     return () => {
       isMounted = false; // 组件卸载时清理
@@ -162,40 +203,6 @@ export default function Home() {
     };
   }, [selectedTags]); // 只在selectedTags变化时重新获取
 
-  // 认证效果 - 保持不变
-  useEffect(() => {
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setUser(session?.user ?? null);
-        setLoadingAuth(false);
-        /* 注释掉登录重定向
-      if (event === "SIGNED_OUT" || (!session && event !== "INITIAL_SESSION")) {
-        router.push("/login")
-      }
-      */
-      }
-    );
-
-    // 检查初始会话
-    const checkSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      setUser(session?.user ?? null);
-      setLoadingAuth(false);
-      /* 注释掉登录重定向
-      if (!session) {
-        router.push("/login")
-      }
-      */
-    };
-    checkSession();
-
-    return () => {
-      authListener.subscription?.unsubscribe();
-    };
-  }, [router]);
-
   // 生成标签切换的 href 的辅助函数 - 使用useCallback记忆函数
   const getToggleTagHref = useCallback(
     (tag: string): string => {
@@ -239,13 +246,106 @@ export default function Home() {
     }, 600);
   }, [tempCustomPrompt, customPrompt]);
 
+  // 保存用户标签偏好到本地存储
+  const saveUserPreferences = async () => {
+    if (!user) {
+      toast.error("請先登入以保存偏好設置");
+      return;
+    }
+
+    setIsSavingPreferences(true);
+
+    try {
+      // 保存到本地存储
+      localStorage.setItem(
+        `tagPreferences_${user.id}`,
+        JSON.stringify(selectedTags)
+      );
+
+      toast.success("新聞偏好已成功保存");
+    } catch (err) {
+      console.error("保存偏好时出错:", err);
+      toast.error("保存偏好時發生錯誤");
+    } finally {
+      setIsSavingPreferences(false);
+    }
+  };
+
+  // 处理 Telegram 登录
+  const handleTelegramAuth = (telegramUser: TelegramUser) => {
+    // 保存用户信息到本地存储
+    localStorage.setItem("telegramUser", JSON.stringify(telegramUser));
+    setUser(telegramUser);
+    toast.success("登入成功");
+  };
+
+  // 处理登出
+  const handleLogout = () => {
+    setIsAuthLoading(true);
+    try {
+      // 清除本地存储中的用户信息
+      localStorage.removeItem("telegramUser");
+      setUser(null);
+      toast.success("已成功登出");
+    } catch (error) {
+      console.error("登出错误:", error);
+      toast.error("登出失败，请重试");
+    } finally {
+      setIsAuthLoading(false);
+    }
+  };
+
   return (
     <div className="container mx-auto p-4 sm:p-8 font-[family-name:var(--font-geist-sans)]">
-      <header className="mb-8">
+      <header className="mb-8 flex justify-between items-center">
         <h1 className="text-3xl font-bold text-center sm:text-left">
           Latest News{" "}
           {selectedTags.length > 0 ? ` - 標籤: ${selectedTags.join(", ")}` : ""}
         </h1>
+
+        {/* Telegram 登录按钮/用户菜单 */}
+        {user ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="flex items-center gap-2">
+                {user.photo_url ? (
+                  <img
+                    src={user.photo_url || "/placeholder.svg"}
+                    alt={user.first_name}
+                    className="h-6 w-6 rounded-full"
+                  />
+                ) : (
+                  <UserIcon className="h-4 w-4" />
+                )}
+                {user.username ||
+                  `${user.first_name}${
+                    user.last_name ? ` ${user.last_name}` : ""
+                  }`}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem className="text-sm text-gray-500" disabled>
+                Telegram ID: {user.id}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleLogout} disabled={isAuthLoading}>
+                <LogOut className="h-4 w-4 mr-2" />
+                登出
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          <div className="telegram-login-container">
+            <TelegramLoginButton
+              botName={TELEGRAM_BOT_NAME}
+              onAuth={handleTelegramAuth}
+              buttonSize="medium"
+              cornerRadius={8}
+              usePic={true}
+              lang="zh-hant"
+            />
+          </div>
+        )}
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -349,7 +449,19 @@ export default function Home() {
 
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold">更改追蹤標籤</h2>
-            <Button>儲存新聞偏好</Button>
+            <Button
+              onClick={saveUserPreferences}
+              disabled={isSavingPreferences || !user}
+            >
+              {isSavingPreferences ? (
+                <>
+                  <Loader className="mr-2 h-4 w-4 animate-spin" />
+                  儲存中...
+                </>
+              ) : (
+                "儲存新聞偏好"
+              )}
+            </Button>
           </div>
           <div className="flex flex-wrap gap-2">
             {/* "所有标签"按钮清除选择 */}
