@@ -52,7 +52,7 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 // Telegram bot name - replace with your bot name
 const TELEGRAM_BOT_NAME = "OpenNews_bot";
 
-// 页面组件
+// Page Component
 export default function Home() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -91,7 +91,7 @@ export default function Home() {
     setSelectedTags(getSelectedTags());
   }, [getSelectedTags]);
 
-  // 获取标签 - 只在组件挂载时执行一次
+  // 讀去新聞標籤 - 只在组件挂载时执行一次
   useEffect(() => {
     let isMounted = true; // 防止组件卸载后设置状态
 
@@ -148,7 +148,7 @@ export default function Home() {
     };
   }, []); // 空依赖数组，只在挂载时执行一次
 
-  // 获取文章 - 添加防抖，避免频繁请求
+  // 獲取文章 - 添加防抖，避免频繁请求
   useEffect(() => {
     let isMounted = true;
     const controller = new AbortController(); // 用于取消请求
@@ -203,6 +203,36 @@ export default function Home() {
     };
   }, [selectedTags]); // 只在selectedTags变化时重新获取
 
+  // 讀取用戶選擇的標籤 - 只在用戶變化時執行
+  useEffect(() => {
+    if (!user) return;
+
+    async function fetchUserSelectedTags() {
+      if (!user) return;
+      try {
+        const { data, error } = await supabase
+          .from("user_preferences")
+          .select("selected_tags")
+          .eq("telegram_id", user.id)
+          .single();
+
+        if (error && error.code !== "PGRST116") {
+          // PGRST116 = no rows found，沒有資料是正常狀況
+          console.error("讀取用戶偏好標籤失敗:", error);
+          return;
+        }
+
+        if (data?.selected_tags) {
+          setSelectedTags(data.selected_tags);
+        }
+      } catch (err) {
+        console.error("fetchUserSelectedTags 發生錯誤:", err);
+      }
+    }
+
+    fetchUserSelectedTags();
+  }, [user]);
+
   // 生成标签切换的 href 的辅助函数 - 使用useCallback记忆函数
   const getToggleTagHref = useCallback(
     (tag: string): string => {
@@ -219,7 +249,7 @@ export default function Home() {
   );
 
   // 处理保存提示的函数
-  const handleSavePrompt = useCallback(() => {
+  const handleSavePrompt = useCallback(async () => {
     if (tempCustomPrompt === customPrompt) {
       // using sonner's toast
       toast("提示内容未更改", {
@@ -230,20 +260,27 @@ export default function Home() {
 
     setIsSaving(true);
 
-    // 模拟保存过程
-    setTimeout(() => {
+    try {
+      // 更新 Supabase
+      const { error } = await supabase.from("user_preferences").upsert(
+        {
+          telegram_id: user?.id,
+          custom_prompt: tempCustomPrompt,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "telegram_id" }
+      );
+
+      if (error) throw error;
+
       setCustomPrompt(tempCustomPrompt);
+      toast.success("自訂 Prompt 已更新，所有文章將使用新的 Prompt");
+    } catch (err) {
+      console.error("保存自訂 Prompt 出錯:", err);
+      toast.error("保存自訂 Prompt 時發生錯誤");
+    } finally {
       setIsSaving(false);
-      setSaveSuccess(true);
-
-      // 使用 sonner 的 toast
-      toast.success("自定義 Prompt 已更新，所有文章將使用新的 Prompt");
-
-      // 重置成功状态
-      setTimeout(() => {
-        setSaveSuccess(false);
-      }, 1500);
-    }, 600);
+    }
   }, [tempCustomPrompt, customPrompt]);
 
   // 保存用户标签偏好到本地存储
@@ -262,9 +299,20 @@ export default function Home() {
         JSON.stringify(selectedTags)
       );
 
+      const { data, error } = await supabase.from("user_preferences").upsert(
+        {
+          telegram_id: user.id,
+          selected_tags: selectedTags,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "telegram_id" } // 根據 telegram_id 決定是 insert 或 update
+      );
+
+      if (error) throw error;
+
       toast.success("新聞偏好已成功保存");
     } catch (err) {
-      console.error("保存偏好时出错:", err);
+      console.error("保存新聞偏好出錯:", err);
       toast.error("保存偏好時發生錯誤");
     } finally {
       setIsSavingPreferences(false);
