@@ -91,7 +91,7 @@ export default function Home() {
     setSelectedTags(getSelectedTags());
   }, [getSelectedTags]);
 
-  // 讀去新聞標籤 - 只在组件挂载时执行一次
+  // 讀取新聞標籤 - 只在组件挂载时执行一次
   useEffect(() => {
     let isMounted = true; // 防止组件卸载后设置状态
 
@@ -212,7 +212,7 @@ export default function Home() {
       try {
         const { data, error } = await supabase
           .from("user_preferences")
-          .select("selected_tags")
+          .select("selected_tags, custom_prompt")
           .eq("telegram_id", user.id)
           .single();
 
@@ -224,6 +224,11 @@ export default function Home() {
 
         if (data?.selected_tags) {
           setSelectedTags(data.selected_tags);
+        }
+
+        if (data?.custom_prompt) {
+          setCustomPrompt(data.custom_prompt);
+          setTempCustomPrompt(data.custom_prompt);
         }
       } catch (err) {
         console.error("fetchUserSelectedTags 發生錯誤:", err);
