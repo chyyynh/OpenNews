@@ -27,27 +27,55 @@ interface Env {
 export default {
 	async fetch(request: Request, env: any) {
 		const payload = (await request.json()) as {
-			message?: { text?: string; chat: { id: number } };
-			callback_query?: { from: { id: number }; data: string };
+			message?: { text?: string; from: { id: number }; chat: { id: number } };
+			callback_query?: { from: { id: number }; message: { chat: { id: number } }; data: string };
 		};
 
 		const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 
-		// 1️⃣ 處理 /start 指令
+		// handle /start
 		if (payload.message?.text === '/start') {
-			const chatId = payload.message.chat.id;
+			console.log(payload);
+			const user_telegram_id = payload.message.from.id;
+			console.log(`user_telegram_id: ${user_telegram_id}\n`);
+
+			// 查詢是否已存在該 telegram_id
+			const { data: user, error: userError } = await supabase
+				.from('user_preferences')
+				.select('telegram_id')
+				.eq('telegram_id', user_telegram_id)
+				.single();
+
+			if (userError && userError.code !== 'PGRST116') {
+				console.error('Error checking user:', userError);
+				return new Response('error', { status: 500 });
+			}
+
+			if (!user) {
+				// 不存在，新增資料
+				const { error: insertError } = await supabase.from('user_preferences').insert([
+					{
+						telegram_id: user_telegram_id,
+					},
+				]);
+
+				if (insertError) {
+					console.error('Error inserting user:', insertError);
+					return new Response('error', { status: 500 });
+				}
+			}
 
 			await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					chat_id: chatId,
+					chat_id: user_telegram_id,
 					text: '請選擇你感興趣的主題：',
 					reply_markup: {
 						inline_keyboard: [
-							[{ text: '🧠 AI', callback_data: 'tag:AI' }],
-							[{ text: '🪙 Crypto', callback_data: 'tag:Crypto' }],
-							[{ text: '🎮 Game', callback_data: 'tag:Game' }],
+							[{ text: 'Trump', callback_data: 'tag:trump' }],
+							[{ text: 'DeFi', callback_data: 'tag:defi' }],
+							[{ text: 'Funding', callback_data: 'tag:funding' }],
 						],
 					},
 				}),
@@ -57,10 +85,15 @@ export default {
 		}
 
 		if (payload.callback_query) {
-			const chatId = payload.callback_query.from.id;
+			const user_telegram_id = payload.callback_query.from.id;
+
 			const tag = payload.callback_query.data.replace('tag:', '');
 
-			const { data: existing, error: selectError } = await supabase.from('users_subtags').select('subtags').eq('chatId', chatId).single();
+			const { data: existing, error: selectError } = await supabase
+				.from('user_preferences')
+				.select('selected_tags')
+				.eq('telegram_id', user_telegram_id)
+				.single();
 
 			if (selectError && selectError.code !== 'PGRST116') {
 				// 非 "no rows returned" 的錯誤，處理錯誤
@@ -68,18 +101,10 @@ export default {
 				return;
 			}
 
+			// 已存在，更新 subtags（合併新的 tag）
 			if (existing) {
-				// 已存在，更新 subtags（合併新的 tag）
-				const updatedSubtags = [...new Set([...existing.subtags, tag])];
-				await supabase.from('users_subtags').update({ subtags: updatedSubtags }).eq('chatId', chatId);
-			} else {
-				// 不存在，插入新的紀錄
-				await supabase.from('users_subtags').insert([
-					{
-						chatId: chatId,
-						subtags: [tag],
-					},
-				]);
+				const updatedSubtags = [...new Set([...existing.selected_tags, tag])];
+				await supabase.from('user_preferences').update({ selected_tags: updatedSubtags }).eq('telegram_id', user_telegram_id);
 			}
 
 			// 回覆使用者
@@ -87,7 +112,7 @@ export default {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					chat_id: chatId,
+					chat_id: user_telegram_id,
 					text: `你已訂閱「${tag}」新聞 ✅`,
 				}),
 			});
