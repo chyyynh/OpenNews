@@ -12,6 +12,7 @@ support RSS & websocket, frontend including web & tgbot
 
 - login with supabase auth
 - get twitter post with custom prompt and send to twitter
+- Support both Telegram Bot(including [mini app](https://core.telegram.org/bots/webapps#designing-mini-apps)) and Website
 
 ### CF Worker
 

@@ -402,6 +402,81 @@ export default function Home() {
         )}
       </header>
 
+      {/* Mobile: Prompt editor and tags at the top */}
+      <div className="md:hidden mb-6 space-y-4">
+        <div className="grid w-full gap-2">
+          <Textarea
+            placeholder="載入自定義提示詞..."
+            value={tempCustomPrompt}
+            onChange={(e) => setTempCustomPrompt(e.target.value)}
+          />
+          <Button
+            onClick={handleSavePrompt}
+            disabled={isSaving || tempCustomPrompt === customPrompt}
+            className="relative"
+          >
+            {isSaving ? (
+              <>
+                <Loader className="mr-2 h-4 w-4" />
+                正在保存...
+              </>
+            ) : saveSuccess ? (
+              <>
+                <Check className="mr-2 h-4 w-4" />
+                已保存
+              </>
+            ) : (
+              "保存提示詞"
+            )}
+          </Button>
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-lg font-semibold">更改追蹤標籤</h2>
+            <Button
+              onClick={saveUserPreferences}
+              disabled={isSavingPreferences || !user}
+              size="sm"
+            >
+              {isSavingPreferences ? (
+                <>
+                  <Loader className="mr-2 h-4 w-4 animate-spin" />
+                  儲存中...
+                </>
+              ) : (
+                "儲存新聞偏好"
+              )}
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/" passHref>
+              <Button
+                variant={selectedTags.length === 0 ? "default" : "outline"}
+                size="sm"
+                className="rounded-full"
+              >
+                所有標籤
+              </Button>
+            </Link>
+            {tags.map((tag) => (
+              <Link href={getToggleTagHref(tag)} key={tag} passHref>
+                <Button
+                  variant={selectedTags.includes(tag) ? "default" : "outline"}
+                  size="sm"
+                  className="rounded-full"
+                >
+                  {tag}
+                </Button>
+              </Link>
+            ))}
+            {tags.length === 0 && !fetchError && (
+              <p className="text-sm text-gray-500">未找到標籤。</p>
+            )}
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {/* 左列（文章列表） */}
         <main className="md:col-span-2 flex flex-col gap-4">
@@ -471,8 +546,8 @@ export default function Home() {
           )}
         </main>
 
-        {/* 右列（标签过滤器） */}
-        <aside className="md:col-span-1 border-l md:pl-6 md:sticky md:top-8 md:self-start md:max-h-screen md:overflow-y-auto">
+        {/* 右列（标签过滤器和提示编辑器） - 仅在桌面显示 */}
+        <aside className="hidden md:block md:col-span-1 border-l md:pl-6 md:sticky md:top-8 md:self-start md:max-h-screen md:overflow-y-auto">
           <div className="grid w-full gap-2 mb-4">
             <Textarea
               placeholder="載入自定義提示詞..."

@@ -33,13 +33,15 @@ async function notifyMatchedUsers(supabase: any, env: Env, tags: Array<string>, 
 		await sendMessageToTelegram(env.TELEGRAM_BOT_TOKEN, user.telegram_id?.toString(), content, {
 			parse_mode: 'Markdown',
 		});
+
+		console.log(`[Telegram Notify] Send to ${user.telegram_id}, tags ${JSON.stringify(user.selected_tags)}`);
 	}
 }
 
 async function processAndInsertArticle(supabase: any, env: Env, item: any, feed?: any, source_type?: string) {
 	const pubDate = item.pubDate || item.isoDate || null;
 	const summary = item.description || item['content:encoded'] || item.text || '';
-	const categories = item.category ? (Array.isArray(item.category) ? item.category : [item.category]) : [];
+	// const categories = item.category ? (Array.isArray(item.category) ? item.category : [item.category]) : [];
 	const url = item.link || item.url || `https://t.me/${feed.RSSLink}/${item.message_id}`;
 
 	// Scrape article content if it's an RSS feed item with a link
@@ -57,8 +59,8 @@ async function processAndInsertArticle(supabase: any, env: Env, item: any, feed?
 		source: feed.name || item.source_name || 'Unknown',
 		published_date: new Date(pubDate) || new Date(),
 		scraped_date: new Date(),
-		keywords: tags.keywords,
-		tags: item.coins_included || tags.categories,
+		keywords: tags.keywords || [],
+		tags: tags.categories || [],
 		summary: ai_summary,
 		source_type: source_type || `websocket`,
 		content: crawled_content,
