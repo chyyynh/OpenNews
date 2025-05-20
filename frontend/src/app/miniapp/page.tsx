@@ -119,7 +119,7 @@ export default function MiniApp() {
           .limit(1000);
 
         if (error) {
-          console.error("获取标签时出错:", error);
+          console.error("[Supabase] fetchTags Error", error);
           return;
         }
 
@@ -131,7 +131,7 @@ export default function MiniApp() {
           setTags(uniqueTags.sort());
         }
       } catch (err) {
-        console.error("fetchTags 中出错:", err);
+        console.error("fetchTags Error:", err);
       }
     }
 
