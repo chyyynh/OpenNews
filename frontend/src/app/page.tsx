@@ -100,7 +100,8 @@ export default function Home() {
         const { data, error } = await supabase
           .from("articles")
           .select("tags")
-          .limit(2000);
+          .order("created_at", { ascending: false }) // 依照建立時間由新到舊排序
+          .limit(1000);
 
         if (error) {
           console.error("获取标签时出错:", error);
