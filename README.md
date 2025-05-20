@@ -10,8 +10,8 @@ support RSS & websocket, frontend including web & tgbot
 
 ### Front End
 
-- login with supabase auth
-- get twitter post with custom prompt and send to twitter
+- Login with Telegram Login Widget
+- News Comment with custom prompt
 - Support both Telegram Bot(including [mini app](https://core.telegram.org/bots/webapps#designing-mini-apps)) and Website
 
 ### CF Worker
