@@ -24,6 +24,7 @@
 		"@supabase/supabase-js": "^2.49.4",
 		"axios": "^1.8.4",
 		"cheerio": "^1.0.0",
+		"dotenv": "^16.5.0",
 		"fast-xml-parser": "^5.2.0",
 		"keyword-extractor": "^0.0.28",
 		"natural": "^8.0.1",

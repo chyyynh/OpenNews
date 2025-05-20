@@ -15,11 +15,31 @@ interface Env {
 	GEMINI_API_KEY: string;
 }
 
+async function notifyMatchedUsers(supabase: any, env: Env, tags: Array<string>, content: string) {
+	const { data: users, error } = await supabase.from('user_preferences').select('telegram_id, selected_tags');
+
+	if (error) {
+		console.error('[notifyMatchedUsers] 無法取得用戶資料', error);
+		return;
+	}
+
+	const matchedUsers = users.filter((user: { telegram_id: string; selected_tags: string[] }) =>
+		user.selected_tags.some((tag: string) => tags.includes(tag))
+	);
+
+	console.log(`[notifyMatchedUsers] 符合條件的用戶數量：${matchedUsers.length}`);
+
+	for (const user of matchedUsers) {
+		await sendMessageToTelegram(env.TELEGRAM_BOT_TOKEN, user.telegram_id?.toString(), content, {
+			parse_mode: 'Markdown',
+		});
+	}
+}
+
 async function processAndInsertArticle(supabase: any, env: Env, item: any, feed?: any, source_type?: string) {
 	const pubDate = item.pubDate || item.isoDate || null;
 	const summary = item.description || item['content:encoded'] || item.text || '';
 	const categories = item.category ? (Array.isArray(item.category) ? item.category : [item.category]) : [];
-	const tags = await tagNews(item.title || item.text || item.news_title);
 	const url = item.link || item.url || `https://t.me/${feed.RSSLink}/${item.message_id}`;
 
 	// Scrape article content if it's an RSS feed item with a link
@@ -29,6 +49,7 @@ async function processAndInsertArticle(supabase: any, env: Env, item: any, feed?
 	}
 
 	const ai_summary = await SummaryByAI(item.title || item.text, crawled_content, env.GEMINI_API_KEY);
+	const tags = await tagNews(env.GEMINI_API_KEY, item.title || item.text || item.news_title, crawled_content);
 
 	const insert = {
 		url: url,
@@ -36,8 +57,8 @@ async function processAndInsertArticle(supabase: any, env: Env, item: any, feed?
 		source: feed.name || item.source_name || 'Unknown',
 		published_date: new Date(pubDate) || new Date(),
 		scraped_date: new Date(),
-		categories,
-		tags: item.coins_included || tags,
+		keywords: tags.keywords,
+		tags: item.coins_included || tags.categories,
 		summary: ai_summary,
 		source_type: source_type || `websocket`,
 		content: crawled_content,
@@ -53,12 +74,18 @@ async function processAndInsertArticle(supabase: any, env: Env, item: any, feed?
 		const tweetUrl = encodeURIComponent(url);
 		const twitterIntentUrl = `https://twitter.com/intent/tweet?text=${tweetText}&url=${tweetUrl}`;
 		const twitterPostLink = `[Send to Twitter](${twitterIntentUrl})`;
+
+		const contentSenttoUser = `${aiCommentary.trim()}\n\n${ai_summary.trim()}\n- [連結](${url}) | ${twitterPostLink}`;
+
+		await notifyMatchedUsers(supabase, env, tags.categories, contentSenttoUser);
+
 		await sendMessageToTelegram(
 			env.TELEGRAM_BOT_TOKEN,
 			env.TELEGRAM_CHAT_ID,
 			`${aiCommentary.trim()}\n\n${ai_summary.trim()}\n- [連結](${url}) | ${twitterPostLink}`,
 			{ parse_mode: 'Markdown' }
 		);
+
 		console.log(`[${feed.name}] New article: ${item.title || item.text} tags ${JSON.stringify(tags)}`);
 	}
 }

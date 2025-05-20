@@ -1,6 +1,7 @@
 import keyword_extractor from 'keyword-extractor';
 import * as axios from 'axios';
 import * as cheerio from 'cheerio';
+import { GoogleGenAI, Type } from '@google/genai';
 import { TelegramClient } from 'telegram';
 import { StringSession } from 'telegram/sessions';
 
@@ -8,6 +9,17 @@ interface TelegramResponse {
 	ok: boolean;
 	result: any[];
 	description?: string;
+}
+
+interface Env {
+	SUPABASE_URL: string;
+	SUPABASE_SERVICE_ROLE_KEY: string;
+	TELEGRAM_BOT_TOKEN: string;
+	TELEGRAM_CHAT_ID: string;
+	TELEGRAM_API_ID: string;
+	TELEGRAM_API_HASH: string;
+	TELEGRAM_SESSION: string;
+	GEMINI_API_KEY: string;
 }
 
 export async function sendMessageToTelegram(token: string, chatId: string, message: string, options?: Record<string, any>) {
@@ -36,94 +48,91 @@ export async function sendMessageToTelegram(token: string, chatId: string, messa
 	}
 }
 
-export async function tagNews(title: string): Promise<string[]> {
-	const text = title.toLowerCase();
-	const tags = new Set<string>(); // Use Set to avoid duplicate tags
+export async function tagNews(
+	geini_api_key: string,
+	title: string,
+	content: string
+): Promise<{ categories: string[]; keywords: string[] }> {
+	const ai = new GoogleGenAI({ apiKey: geini_api_key });
 
-	// 1. Extract keywords using keyword-extractor
-	const extraction_result = keyword_extractor.extract(text, {
-		language: 'english',
-		remove_digits: true,
-		return_changed_case: true,
-		remove_duplicates: true,
+	const ai_tag_prompt = `
+		You are a crypto-native research analyst. Please analyze the following piece of crypto news and classify it into one or more of the following categories based on its content.
+
+		!Important:
+		- Only return the main category name listed before any slashes.
+		- Do not include multiple category names in one string (e.g., use "Regulation", not "Regulation / Legal / Compliance").
+		- Use only the standardized names listed below.
+
+		Standardized Categories (choose the most relevant ones, max 3):
+
+		1. Layer1
+		2. DeFi
+		3. NFT
+		4. GameFi
+		5. Metaverse 
+		6. DAO
+		7. Regulation
+		8. Security
+		9. Exchange
+		10. Fundraising
+		11. Ecosystem
+		12. Community
+
+		Category Normalization Guide:
+		- "Layer 1 / Layer 2 / Blockchain Infrastructure" → Layer1
+		- "DeFi (Decentralized Finance)" → DeFi
+		- "NFT / GameFi / Metaverse" → NFT, GameFi, or Metaverse (pick separately)
+		- "DAO / Governance" → DAO
+		- "Regulation / Legal / Compliance" → Regulation
+		- "Hacks / Exploits / Scams / Security Incidents" → Security
+		- "Centralized or Decentralized Exchanges (CEX / DEX)" → Exchange
+		- "Fundraising / Investments / Venture Capital" → Fundraising
+		- "Ecosystem Growth (e.g., Solana, Ethereum, Cosmos, etc.)" → Ecosystem
+		- "Community / Airdrops / Governance Proposals / Marketing Campaigns" → Community
+
+		News content:
+		{{ ${title}\n\n${content} }}`;
+
+	const response = await ai.models.generateContent({
+		model: 'gemini-1.5-flash',
+		contents: ai_tag_prompt,
+		config: {
+			responseMimeType: 'application/json',
+			responseSchema: {
+				type: Type.ARRAY,
+				items: {
+					type: Type.OBJECT,
+					properties: {
+						categories: {
+							type: Type.ARRAY,
+							items: {
+								type: Type.STRING,
+							},
+						},
+						keywords: {
+							type: Type.ARRAY,
+							items: {
+								type: Type.STRING,
+							},
+						},
+					},
+					propertyOrdering: ['categories', 'keywords'],
+				},
+			},
+		},
 	});
 
-	// 2. Tokenize the title using natural for more granular checks if needed
-	// const tokenizer = new WordTokenizer();
-	// const tokens = tokenizer.tokenize(text);
-	// For now, keyword_extractor seems sufficient, but keeping tokenizer logic commented for potential future use.
-
-	const keywords = extraction_result; // Use keywords extracted by keyword-extractor
-
-	// 3. Define tag categories and their associated keywords
-	const categoryKeywords: { [key: string]: string[] } = {
-		listing: ['listing', 'launch', 'listed'],
-		hack: ['hack', 'hacked', 'security', 'breach', 'exploit', 'vulnerability', 'stolen', 'theft'],
-		regulation: ['regulation', 'sec', 'cftc', 'ban', 'compliance', 'enforcement', 'lawsuit', 'legal', `regulator`],
-		partnership: ['partnership', 'collaboration', 'partner', 'integrate', 'join forces'],
-		funding: ['funding', 'raise', 'investment', 'seed', 'series'],
-		airdrop: ['airdrop'],
-		nft: ['nft', 'non-fungible', 'collectible'],
-		defi: ['defi', 'decentralized finance'],
-		stablecoin: ['stablecoin', 'usdc', 'usdt', 'dai'],
-		metaverse: ['metaverse'],
-		trump: ['trump', 'donald trump'],
-	};
-
-	const coinKeywords: { [key: string]: string[] } = {
-		BTC: ['btc', 'bitcoin'],
-		ETH: ['eth', 'ethereum'],
-		XRP: ['xrp', 'ripple'],
-		SOL: ['sol', 'solana'],
-		ADA: ['ada', 'cardano'],
-		DOT: ['dot', 'polkadot'],
-		DOGE: ['doge', 'dogecoin'],
-		SHIB: ['shib', 'shiba inu'],
-		BNB: ['bnb', 'binance coin'],
-		LTC: ['ltc', 'litecoin'],
-		LINK: ['link', 'chainlink'],
-		MATIC: ['matic', 'polygon'],
-		AVAX: ['avax', 'avalanche'],
-	};
-
-	// 4. Tag based on keywords
-	keywords.forEach((keyword: string) => {
-		// Check categories
-		for (const category in categoryKeywords) {
-			if (categoryKeywords[category].includes(keyword)) {
-				tags.add(category);
-			}
+	console.log(response.text);
+	try {
+		const parsed = JSON.parse(response.text ?? '[]');
+		if (Array.isArray(parsed)) {
+			return parsed[0] as { categories: string[]; keywords: string[] };
 		}
-		// Check coins
-		for (const coin in coinKeywords) {
-			if (coinKeywords[coin].includes(keyword)) {
-				tags.add(coin);
-			}
-		}
-	});
-
-	// 5. Fallback: Check original text if no keywords matched specific tags (optional, can be removed if keyword extraction is reliable enough)
-	// This helps catch cases where the keyword extractor might miss something obvious
-	const checkOriginalText = (tagMap: { [key: string]: string[] }) => {
-		for (const tag in tagMap) {
-			if (tagMap[tag].some((kw) => text.includes(kw))) {
-				tags.add(tag);
-			}
-		}
-	};
-
-	if (tags.size === 0) {
-		// Only run fallback if no tags were found via keywords
-		checkOriginalText(categoryKeywords);
-		checkOriginalText(coinKeywords);
+		return { categories: [], keywords: [] };
+	} catch (e) {
+		console.error('Failed to parse Gemini response as JSON:', e);
+		return { categories: [], keywords: [] };
 	}
-
-	// Add a generic 'crypto' tag if no other specific tags are found?
-	// if (tags.size === 0 && (text.includes('crypto') || text.includes('blockchain'))) {
-	//     tags.add('crypto');
-	// }
-
-	return Array.from(tags);
 }
 
 export async function scrapeArticleContent(url: string): Promise<string> {
@@ -198,6 +207,17 @@ export async function scrapeArticleContent(url: string): Promise<string> {
 		return '';
 	}
 }
+
+// 根據文章 tags 傳送訊息給有相符偏好的使用者：
+
+import { createClient } from '@supabase/supabase-js';
+
+type NotifyOptions = {
+	tags: string[];
+	title: string;
+	summary: string;
+	url: string;
+};
 
 // Telegram 監控
 /*
