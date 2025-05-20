@@ -24,6 +24,8 @@ export function useTags(user: TelegramUser | null) {
   }, [getSelectedTags]);
 
   // Fetch tags on component mount
+  // TODO: edit to /api/edit-tags
+
   useEffect(() => {
     let isMounted = true;
 

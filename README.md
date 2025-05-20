@@ -19,3 +19,7 @@ support RSS & websocket, frontend including web & tgbot
 1. rss-feed-monitor: monitor RSS link every 5 min
 2. summary: summary by AI and send to twitter/telegram, X access token auto refresh, send summary to twitter by oauth2 access token
 3. telegram-bot: tg bot server for selecting news topics
+
+### System Diagram
+
+![](https://www.mermaidchart.com/raw/ce8745bd-e9c3-4711-9dbe-636f96e9e14d?theme=light&version=v0.1&format=svg)

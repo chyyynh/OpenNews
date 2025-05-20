@@ -13,6 +13,7 @@ export function useCustomPrompt(user: TelegramUser | null) {
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   // Fetch user custom prompt when user changes
+  // TODO: edit to /api/edit-custom-prompt
   useEffect(() => {
     if (!user) return;
 
