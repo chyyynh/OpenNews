@@ -18,7 +18,9 @@ export function useCustomPrompt(user: TelegramUser | null) {
     async function fetchUserCustomPrompt() {
       try {
         if (!user) return;
-        const res = await fetch(`/api/customPrompt?telegram_id=${user.id}`);
+        const res = await fetch(
+          `/api/user/customPrompt?telegram_id=${user.id}`
+        );
         if (!res.ok) {
           const errData = await res.json();
           console.error("讀取用戶自定義提示詞失敗:", errData.error);
@@ -50,7 +52,7 @@ export function useCustomPrompt(user: TelegramUser | null) {
     setIsSaving(true);
 
     try {
-      const res = await fetch("/api/customPrompt", {
+      const res = await fetch("/api/user/customPrompt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

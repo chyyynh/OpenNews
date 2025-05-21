@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/supabase";
 import type { TelegramUser } from "@/types";
 
 export function useTags(user: TelegramUser | null) {
@@ -23,34 +22,23 @@ export function useTags(user: TelegramUser | null) {
     setSelectedTags(getSelectedTags());
   }, [getSelectedTags]);
 
-  // Fetch tags on component mount
-  // TODO: edit to /api/edit-tags
-
+  // Fetch all tags from API
   useEffect(() => {
     let isMounted = true;
 
     async function fetchTags() {
       try {
-        const { data, error } = await supabase
-          .from("articles")
-          .select("tags")
-          .order("scraped_date", { ascending: false })
-          .limit(1000);
+        const res = await fetch("/api/user/tags");
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
 
-        if (error) {
-          console.error("获取标签时出错:", error);
-          return;
-        }
+        const data: { tags: string[] } = await res.json();
 
         if (isMounted) {
-          const allTags = data
-            ? data.flatMap((item: { tags: string[] | null }) => item.tags || [])
-            : [];
-          const uniqueTags = [...new Set(allTags.filter(Boolean))];
+          const uniqueTags = [...new Set(data.tags.filter(Boolean))];
           setTags(uniqueTags.sort());
         }
       } catch (err) {
-        console.error("fetchTags 中出错:", err);
+        console.error("fetchTags 中出錯:", err);
       } finally {
         if (isMounted) {
           setIsLoading(false);
@@ -65,24 +53,19 @@ export function useTags(user: TelegramUser | null) {
     };
   }, []);
 
-  // Fetch user preferences when user changes
+  // Fetch user preferences from API
   useEffect(() => {
     if (!user) return;
 
     async function fetchUserSelectedTags() {
       try {
-        const { data, error } = await supabase
-          .from("user_preferences")
-          .select("selected_tags")
-          .eq("telegram_id", user?.id)
-          .single();
+        if (!user) return;
+        const res = await fetch(`/api/user/tags?telegram_id=${user.id}`);
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
 
-        if (error && error.code !== "PGRST116") {
-          console.error("讀取用戶偏好標籤失敗:", error);
-          return;
-        }
+        const data: { selected_tags?: string[] } = await res.json();
 
-        if (data?.selected_tags) {
+        if (data.selected_tags) {
           setSelectedTags(data.selected_tags);
         }
       } catch (err) {
@@ -100,7 +83,7 @@ export function useTags(user: TelegramUser | null) {
     );
   };
 
-  // Save user tag preferences
+  // Save user tag preferences via API
   const saveUserPreferences = async () => {
     if (!user) {
       return { success: false, message: "無法獲取用戶信息" };
@@ -109,16 +92,20 @@ export function useTags(user: TelegramUser | null) {
     setIsSaving(true);
 
     try {
-      const { error } = await supabase.from("user_preferences").upsert(
-        {
+      const res = await fetch("/api/user/tags", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
           telegram_id: user.id,
           selected_tags: selectedTags,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "telegram_id" }
-      );
+        }),
+      });
 
-      if (error) throw error;
+      const result = await res.json();
+
+      if (!res.ok) throw new Error(result.message || "保存偏好失敗");
 
       return { success: true, message: "標籤偏好已成功保存" };
     } catch (err) {
