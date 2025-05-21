@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/lib/supabase";
 import { TelegramUser } from "@/types";
 
 export function useCustomPrompt(user: TelegramUser | null) {
@@ -12,24 +11,20 @@ export function useCustomPrompt(user: TelegramUser | null) {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // Fetch user custom prompt when user changes
-  // TODO: edit to /api/edit-custom-prompt
+  // 用 GET API 讀取 custom_prompt
   useEffect(() => {
     if (!user) return;
 
     async function fetchUserCustomPrompt() {
       try {
-        const { data, error } = await supabase
-          .from("user_preferences")
-          .select("custom_prompt")
-          .eq("telegram_id", user?.id)
-          .single();
-
-        if (error && error.code !== "PGRST116") {
-          console.error("讀取用戶自定義提示詞失敗:", error);
+        if (!user) return;
+        const res = await fetch(`/api/customPrompt?telegram_id=${user.id}`);
+        if (!res.ok) {
+          const errData = await res.json();
+          console.error("讀取用戶自定義提示詞失敗:", errData.error);
           return;
         }
-
+        const data = await res.json();
         if (data?.custom_prompt) {
           setCustomPrompt(data.custom_prompt);
           setTempCustomPrompt(data.custom_prompt);
@@ -42,29 +37,33 @@ export function useCustomPrompt(user: TelegramUser | null) {
     fetchUserCustomPrompt();
   }, [user]);
 
-  // Save custom prompt
+  // 用 POST API 儲存 custom_prompt
   const handleSavePrompt = useCallback(async () => {
     if (!user) {
       return { success: false, message: "請先登入以保存提示詞" };
     }
 
     if (tempCustomPrompt === customPrompt) {
-      return { success: false, message: "提示内容未更改" };
+      return { success: false, message: "提示內容未更改" };
     }
 
     setIsSaving(true);
 
     try {
-      const { error } = await supabase.from("user_preferences").upsert(
-        {
+      const res = await fetch("/api/customPrompt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           telegram_id: user.id,
           custom_prompt: tempCustomPrompt,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "telegram_id" }
-      );
+        }),
+      });
 
-      if (error) throw error;
+      const result = await res.json();
+
+      if (!res.ok) {
+        throw new Error(result.error || "伺服器錯誤");
+      }
 
       setCustomPrompt(tempCustomPrompt);
       setSaveSuccess(true);
