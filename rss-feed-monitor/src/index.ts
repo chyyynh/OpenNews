@@ -28,9 +28,10 @@ async function notifyMatchedUsers(supabase: any, env: Env, tags: Array<string>, 
 	);
 
 	console.log(`[notifyMatchedUsers] 符合條件的用戶數量：${matchedUsers.length}`);
+	const formattedTags = tags.map((tag) => `#${tag}`).join(' ');
 
 	for (const user of matchedUsers) {
-		await sendMessageToTelegram(env.TELEGRAM_BOT_TOKEN, user.telegram_id?.toString(), content, {
+		await sendMessageToTelegram(env.TELEGRAM_BOT_TOKEN, user.telegram_id?.toString(), `${formattedTags}\n\n${content}`, {
 			parse_mode: 'Markdown',
 		});
 
@@ -76,17 +77,9 @@ async function processAndInsertArticle(supabase: any, env: Env, item: any, feed?
 		const tweetUrl = encodeURIComponent(url);
 		const twitterIntentUrl = `https://twitter.com/intent/tweet?text=${tweetText}&url=${tweetUrl}`;
 		const twitterPostLink = `[Send to Twitter](${twitterIntentUrl})`;
-
 		const contentSenttoUser = `${aiCommentary.trim()}\n\n${ai_summary.trim()}\n- [連結](${url}) | ${twitterPostLink}`;
 
 		await notifyMatchedUsers(supabase, env, tags.categories, contentSenttoUser);
-
-		await sendMessageToTelegram(
-			env.TELEGRAM_BOT_TOKEN,
-			env.TELEGRAM_CHAT_ID,
-			`${aiCommentary.trim()}\n\n${ai_summary.trim()}\n- [連結](${url}) | ${twitterPostLink}`,
-			{ parse_mode: 'Markdown' }
-		);
 
 		console.log(`[${feed.name}] New article: ${item.title || item.text} tags ${JSON.stringify(tags)}`);
 	}
