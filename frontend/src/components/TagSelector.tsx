@@ -51,8 +51,7 @@ export function TagSelector({
           <Button
             key={tag}
             variant={selectedTags.includes(tag) ? "default" : "outline"}
-            size="sm"
-            className="rounded-full"
+            className="rounded-full px-4 py-2 text-base"
             style={
               selectedTags.includes(tag)
                 ? {
