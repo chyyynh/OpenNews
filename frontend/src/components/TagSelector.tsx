@@ -46,6 +46,28 @@ export function TagSelector({
         </Button>
       </div>
 
+      {selectedTags.length > 0 && (
+        <div className="mt-4">
+          <h3 className="text-sm font-medium mb-2">已選擇的標籤:</h3>
+          <div className="flex flex-wrap gap-2">
+            {selectedTags.map((tag) => (
+              <div
+                key={tag}
+                className="bg-primary/10 text-primary px-3 py-1 rounded-full text-sm flex items-center"
+                style={{
+                  backgroundColor: `${getComputedStyle(
+                    document.documentElement
+                  ).getPropertyValue("--tg-theme-button-color")}20`,
+                  color: "var(--tg-theme-button-color)",
+                }}
+              >
+                {tag}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-2 max-h-[300px] overflow-y-auto p-1">
         {tags.map((tag) => (
           <Button
@@ -73,28 +95,6 @@ export function TagSelector({
           <p className="text-sm text-gray-500">未找到標籤。</p>
         )}
       </div>
-
-      {selectedTags.length > 0 && (
-        <div className="mt-4">
-          <h3 className="text-sm font-medium mb-2">已選擇的標籤:</h3>
-          <div className="flex flex-wrap gap-2">
-            {selectedTags.map((tag) => (
-              <div
-                key={tag}
-                className="bg-primary/10 text-primary px-3 py-1 rounded-full text-sm flex items-center"
-                style={{
-                  backgroundColor: `${getComputedStyle(
-                    document.documentElement
-                  ).getPropertyValue("--tg-theme-button-color")}20`,
-                  color: "var(--tg-theme-button-color)",
-                }}
-              >
-                {tag}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -120,7 +120,7 @@ export default function MiniApp() {
       }}
     >
       <header className="mb-6 flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Telegram Mini App</h1>
+        <h1 className="text-2xl font-bold">OpenNews Setting</h1>
         <UserDisplay user={user} />
       </header>
 
