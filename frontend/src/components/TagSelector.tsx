@@ -22,7 +22,7 @@ export function TagSelector({
   saveUserPreferences,
 }: TagSelectorProps) {
   return (
-    <div className="border rounded-lg p-4 shadow">
+    <div className="rounded-lg p-4">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-lg font-semibold">選擇標籤</h2>
         <Button
@@ -49,7 +49,7 @@ export function TagSelector({
       {selectedTags.length > 0 && (
         <div className="mt-4">
           <h3 className="text-sm font-medium mb-2">已選擇的標籤:</h3>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 mb-4">
             {selectedTags.map((tag) => (
               <div
                 key={tag}

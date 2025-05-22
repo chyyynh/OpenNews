@@ -74,9 +74,10 @@ export async function tagNews(
 		7. Regulation
 		8. Security
 		9. Exchange
-		10. Fundraising
-		11. Ecosystem
-		12. Community
+		10. Trading
+		11. Fundraising
+		12. Ecosystem
+		13. Community
 
 		Category Normalization Guide:
 		- "Layer 1 / Layer 2 / Blockchain Infrastructure" → Layer1
@@ -86,6 +87,7 @@ export async function tagNews(
 		- "Regulation / Legal / Compliance" → Regulation
 		- "Hacks / Exploits / Scams / Security Incidents" → Security
 		- "Centralized or Decentralized Exchanges (CEX / DEX)" → Exchange
+		- "Talking about token price" → Trading
 		- "Fundraising / Investments / Venture Capital" → Fundraising
 		- "Ecosystem Growth (e.g., Solana, Ethereum, Cosmos, etc.)" → Ecosystem
 		- "Community / Airdrops / Governance Proposals / Marketing Campaigns" → Community

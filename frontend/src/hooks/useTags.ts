@@ -25,28 +25,22 @@ export function useTags(user: TelegramUser | null) {
   // Fetch all tags from API
   useEffect(() => {
     let isMounted = true;
-
-    async function fetchTags() {
-      try {
-        const res = await fetch("/api/user/tags");
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-
-        const data: { tags: string[] } = await res.json();
-
-        if (isMounted) {
-          const uniqueTags = [...new Set(data.tags.filter(Boolean))];
-          setTags(uniqueTags.sort());
-        }
-      } catch (err) {
-        console.error("fetchTags 中出錯:", err);
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    fetchTags();
+    const tags = [
+      "Layer1",
+      "DeFi",
+      "NFT",
+      "GameFi",
+      "Metaverse",
+      "DAO",
+      "Regulation",
+      "Security",
+      "Exchange",
+      "Trading",
+      "Fundraising",
+      "Ecosystem",
+      "Community",
+    ];
+    setTags(tags);
 
     return () => {
       isMounted = false;

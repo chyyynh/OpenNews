@@ -25,7 +25,7 @@ export function PromptEditor({
   customPrompt,
 }: PromptEditorProps) {
   return (
-    <div className="border rounded-lg p-4 shadow">
+    <div className="rounded-lg p-4">
       <h2 className="text-lg font-semibold mb-3">自訂提示詞</h2>
       <div className="grid w-full gap-3">
         <Textarea
