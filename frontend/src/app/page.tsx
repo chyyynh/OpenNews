@@ -15,14 +15,16 @@ import {
 import { Button } from "@/components/ui/button";
 
 import { supabase } from "@/lib/supabase";
+import type { ArticleItem, TelegramUser } from "@/types";
+
 import { useTelegramUser } from "@/hooks/useTelegramUser";
 import { useTags } from "@/hooks/useTags";
 import { useCustomPrompt } from "@/hooks/useCustomPrompt";
 import { UserDisplay } from "@/components/UserDisplay";
 import { PromptEditor } from "@/components/PromptEditor";
+import { TagSelector } from "@/components/TagSelector";
 import TelegramLoginButton from "@/components/TelegramLoginButton";
 import { SendToTwitterButton } from "@/components/SendToTwitterButton";
-import type { ArticleItem, TelegramUser } from "@/types";
 
 // Telegram bot name - replace with your bot name
 const TELEGRAM_BOT_NAME = "OpenNews_bot";
@@ -70,7 +72,9 @@ export default function Home() {
   const {
     tags,
     selectedTags,
+    isLoading: isTagsLoading,
     isSaving: isSavingTags,
+    toggleTag,
     saveUserPreferences,
   } = useTags(user);
 
@@ -174,6 +178,7 @@ export default function Home() {
     } else {
       toast.error(result.message);
     }
+    return result;
   };
 
   // Handle Telegram login (web version)
@@ -258,50 +263,15 @@ export default function Home() {
           customPrompt={customPrompt}
         />
 
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-lg font-semibold">更改追蹤標籤</h2>
-            <Button
-              onClick={handleSavePreferencesWithToast}
-              disabled={isSavingTags || !user}
-              size="sm"
-            >
-              {isSavingTags ? (
-                <>
-                  <Loader className="mr-2 h-4 w-4 animate-spin" />
-                  儲存中...
-                </>
-              ) : (
-                "儲存新聞偏好"
-              )}
-            </Button>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Link href="/" passHref>
-              <Button
-                variant={selectedTags.length === 0 ? "default" : "outline"}
-                size="sm"
-                className="rounded-full"
-              >
-                所有標籤
-              </Button>
-            </Link>
-            {tags.map((tag) => (
-              <Link href={getToggleTagHref(tag)} key={tag} passHref>
-                <Button
-                  variant={selectedTags.includes(tag) ? "default" : "outline"}
-                  size="sm"
-                  className="rounded-full"
-                >
-                  {tag}
-                </Button>
-              </Link>
-            ))}
-            {tags.length === 0 && !fetchError && (
-              <p className="text-sm text-gray-500">未找到標籤。</p>
-            )}
-          </div>
-        </div>
+        {/* Tags Selector */}
+        <TagSelector
+          user={user}
+          tags={tags}
+          selectedTags={selectedTags}
+          toggleTag={toggleTag}
+          isSaving={isSavingTags}
+          saveUserPreferences={handleSavePreferencesWithToast}
+        />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
