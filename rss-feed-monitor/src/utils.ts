@@ -52,7 +52,7 @@ export async function tagNews(
 	geini_api_key: string,
 	title: string,
 	content: string
-): Promise<{ categories: string[]; keywords: string[] }> {
+): Promise<{ categories: string[]; keywords: string[]; tokens: string[] }> {
 	const ai = new GoogleGenAI({ apiKey: geini_api_key });
 
 	const ai_tag_prompt = `
@@ -62,14 +62,15 @@ export async function tagNews(
 		- Only return the main category name listed before any slashes.
 		- Do not include multiple category names in one string (e.g., use "Regulation", not "Regulation / Legal / Compliance").
 		- Use only the standardized names listed below.
+		- If the news mentions a specific token, include its ticker symbol (e.g., BTC, ETH) in the tokens field.
 
-		Standardized Categories (choose the most relevant ones, max 3):
+		## Standardized Categories (choose the most relevant ones, max 3):
 
 		1. Layer1
 		2. DeFi
 		3. NFT
 		4. GameFi
-		5. Metaverse 
+		5. Metaverse
 		6. DAO
 		7. Regulation
 		8. Security
@@ -78,8 +79,11 @@ export async function tagNews(
 		11. Fundraising
 		12. Ecosystem
 		13. Community
+		14. ETF
+		15. Listing
 
 		Category Normalization Guide:
+
 		- "Layer 1 / Layer 2 / Blockchain Infrastructure" → Layer1
 		- "DeFi (Decentralized Finance)" → DeFi
 		- "NFT / GameFi / Metaverse" → NFT, GameFi, or Metaverse (pick separately)
@@ -87,13 +91,14 @@ export async function tagNews(
 		- "Regulation / Legal / Compliance" → Regulation
 		- "Hacks / Exploits / Scams / Security Incidents" → Security
 		- "Centralized or Decentralized Exchanges (CEX / DEX)" → Exchange
-		- "Talking about token price" → Trading
+		- "Talking about token price or technical analysis" → Trading
 		- "Fundraising / Investments / Venture Capital" → Fundraising
 		- "Ecosystem Growth (e.g., Solana, Ethereum, Cosmos, etc.)" → Ecosystem
 		- "Community / Airdrops / Governance Proposals / Marketing Campaigns" → Community
+		- "ETF (e.g., Spot or Futures-based Exchange Traded Funds)" → ETF
+		- "Listings of tokens on exchanges (CEX or DEX)" → Listing
 
-		News content:
-		{{ ${title}\n\n${content} }}`;
+		News content:{{ ${title}\n\n${content} }}`;
 
 	const response = await ai.models.generateContent({
 		model: 'gemini-1.5-flash',
@@ -117,8 +122,14 @@ export async function tagNews(
 								type: Type.STRING,
 							},
 						},
+						tokens: {
+							type: Type.ARRAY,
+							items: {
+								type: Type.STRING,
+							},
+						},
 					},
-					propertyOrdering: ['categories', 'keywords'],
+					propertyOrdering: ['categories', 'keywords', 'tokens'],
 				},
 			},
 		},
@@ -128,12 +139,12 @@ export async function tagNews(
 	try {
 		const parsed = JSON.parse(response.text ?? '[]');
 		if (Array.isArray(parsed)) {
-			return parsed[0] as { categories: string[]; keywords: string[] };
+			return parsed[0] as { categories: string[]; keywords: string[]; tokens: string[] };
 		}
-		return { categories: [], keywords: [] };
+		return { categories: [], keywords: [], tokens: [] };
 	} catch (e) {
 		console.error('Failed to parse Gemini response as JSON:', e);
-		return { categories: [], keywords: [] };
+		return { categories: [], keywords: [], tokens: [] };
 	}
 }
 
