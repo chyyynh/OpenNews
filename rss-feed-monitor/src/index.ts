@@ -23,8 +23,12 @@ async function notifyMatchedUsers(supabase: any, env: Env, tags: Array<string>, 
 		return;
 	}
 
-	const matchedUsers = users.filter((user: { telegram_id: string; selected_tags: string[] }) =>
-		user.selected_tags.some((tag: string) => tags.includes(tag))
+	const matchedUsers = users.filter(
+		(user: { telegram_id: string; selected_tags: string[] }) =>
+			// 空陣列 → 接收全部
+			user.selected_tags.length === 0 ||
+			// 否則比對 tag
+			user.selected_tags.some((tag: string) => tags.includes(tag))
 	);
 
 	console.log(`[notifyMatchedUsers] 符合條件的用戶數量：${matchedUsers.length}`);
@@ -62,6 +66,7 @@ async function processAndInsertArticle(supabase: any, env: Env, item: any, feed?
 		scraped_date: new Date(),
 		keywords: tags.keywords || [],
 		tags: tags.categories || [],
+		tokens: tags.tokens || [],
 		summary: ai_summary,
 		source_type: source_type || `websocket`,
 		content: crawled_content,
