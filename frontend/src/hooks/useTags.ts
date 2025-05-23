@@ -39,6 +39,8 @@ export function useTags(user: TelegramUser | null) {
       "Fundraising",
       "Ecosystem",
       "Community",
+      "ETF",
+      "Listing",
     ];
     setTags(tags);
 

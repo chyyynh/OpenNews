@@ -21,9 +21,16 @@ export function TagSelector({
   isSaving,
   saveUserPreferences,
 }: TagSelectorProps) {
+  // 把選中的 tag 放前面，未選的放後面
+
+  const orderedTags = [
+    ...selectedTags,
+    ...tags.filter((tag) => !selectedTags.includes(tag)),
+  ];
+
   return (
     <div className="rounded-lg p-4">
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">選擇標籤</h2>
         <Button
           onClick={saveUserPreferences}
@@ -46,45 +53,16 @@ export function TagSelector({
         </Button>
       </div>
 
-      {selectedTags.length > 0 && (
-        <div className="mt-4">
-          <h3 className="text-sm font-medium mb-2">已選擇的標籤:</h3>
-          <div className="flex flex-wrap gap-2 mb-4">
-            {selectedTags.map((tag) => (
-              <div
-                key={tag}
-                className="bg-primary/10 text-primary px-3 py-1 rounded-full text-sm flex items-center"
-                style={{
-                  backgroundColor: `${getComputedStyle(
-                    document.documentElement
-                  ).getPropertyValue("--tg-theme-button-color")}20`,
-                  color: "var(--tg-theme-button-color)",
-                }}
-              >
-                {tag}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="flex flex-wrap gap-2 max-h-[300px] overflow-y-auto p-1">
-        {tags.map((tag) => (
+      <div className="flex flex-wrap gap-2 max-h-[300px] overflow-y-auto">
+        {orderedTags.map((tag) => (
           <Button
             key={tag}
-            variant={selectedTags.includes(tag) ? "default" : "outline"}
-            className="rounded-full px-4 py-2 text-base"
-            style={
+            variant="outline"
+            className={`px-2 text-base border ${
               selectedTags.includes(tag)
-                ? {
-                    backgroundColor: "var(--tg-theme-button-color)",
-                    color: "var(--tg-theme-button-text-color)",
-                  }
-                : {
-                    borderColor: "var(--tg-theme-button-color)",
-                    color: "var(--tg-theme-button-color)",
-                  }
-            }
+                ? "bg-black text-white border-transparent"
+                : "text-[var(--tg-theme-button-color)] border-[var(--tg-theme-button-color)]"
+            }`}
             onClick={() => toggleTag(tag)}
           >
             {tag}

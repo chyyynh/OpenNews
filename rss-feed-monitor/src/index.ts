@@ -82,7 +82,7 @@ async function processAndInsertArticle(supabase: any, env: Env, item: any, feed?
 		const tweetUrl = encodeURIComponent(url);
 		const twitterIntentUrl = `https://twitter.com/intent/tweet?text=${tweetText}&url=${tweetUrl}`;
 		const twitterPostLink = `[Send to Twitter](${twitterIntentUrl})`;
-		const contentSenttoUser = `${aiCommentary.trim()}\n\n${ai_summary.trim()}\n- [連結](${url}) | ${twitterPostLink}`;
+		const contentSenttoUser = `${aiCommentary.trim()}\n\n${ai_summary.trim()}\n\n- [連結](${url}) | ${twitterPostLink}`;
 
 		await notifyMatchedUsers(supabase, env, tags.categories, contentSenttoUser);
 
@@ -94,7 +94,7 @@ const CommentByAI = async (title: string, summary: string, apiKey: string) => {
 	const genAI = new GoogleGenAI({ apiKey });
 	const response = await genAI.models.generateContent({
 		model: 'gemini-1.5-flash',
-		contents: `你是穿越時空的炒幣 degen 孫子兵法裡的孫武, 請用 "1-3 句話" 盡可能簡潔的評論這則新聞: ${title} ${summary}`,
+		contents: `你是加密領域的銳評關鍵意見領袖, 請用 "1-3 句話" 使用 "繁體中文" 盡可能簡潔的評論這則新聞: ${title} ${summary}`,
 	});
 	const text = response.text ?? '';
 	return text;

@@ -6,6 +6,7 @@ export interface ArticleItem {
   url: string;
   published_date: string;
   tags: string[];
+  keywords: string[];
   summary: string | null;
 }
 

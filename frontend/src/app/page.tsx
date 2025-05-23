@@ -116,7 +116,7 @@ export default function Home() {
       try {
         let query = supabase
           .from("articles")
-          .select("id, title, url, published_date, tags, summary")
+          .select("id, title, url, published_date, tags, keywords, summary")
           .order("published_date", { ascending: false });
 
         if (selectedTags.length > 0) {
@@ -205,11 +205,15 @@ export default function Home() {
 
   return (
     <div className="container mx-auto p-4 sm:p-8 font-[family-name:var(--font-geist-sans)]">
-      <header className="mb-8 flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-center sm:text-left">
-          Latest News{" "}
-          {selectedTags.length > 0 ? ` - 標籤: ${selectedTags.join(", ")}` : ""}
-        </h1>
+      <header className="mb-4 flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold text-center sm:text-left">
+            OpenNews Latest{" "}
+          </h1>
+          <h3 className="mb-2 flex justify-between items-center">
+            {selectedTags.length > 0 ? `${selectedTags.join(", ")}` : ""}
+          </h3>
+        </div>
 
         {/* Telegram login button/user menu (web version) */}
         {!telegramUser &&
@@ -318,6 +322,11 @@ export default function Home() {
                         | 標籤: {item.tags.join(", ")}
                       </span>
                     )}
+                    {item.keywords && item.keywords.length > 0 && (
+                      <span className="ml-2">
+                        | 關鍵字: {item.keywords.join(", ")}
+                      </span>
+                    )}
                   </div>
                   <SendToTwitterButton
                     articleTitle={item.title}
@@ -358,55 +367,17 @@ export default function Home() {
           </div>
           <hr className="mb-4"></hr>
 
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold">更改追蹤標籤</h2>
-            <Button
-              onClick={handleSavePreferencesWithToast}
-              disabled={isSavingTags || !user}
-            >
-              {isSavingTags ? (
-                <>
-                  <Loader className="mr-2 h-4 w-4 animate-spin" />
-                  儲存中...
-                </>
-              ) : (
-                "儲存新聞偏好"
-              )}
-            </Button>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {/* "All tags" button to clear selection */}
-            <Link href="/" passHref>
-              <Button
-                variant={selectedTags.length === 0 ? "default" : "outline"}
-                size="sm"
-                className="rounded-full"
-              >
-                所有標籤
-              </Button>
-            </Link>
-            {/* Tag buttons to toggle selection */}
-            {tags.map((tag) => (
-              <Link href={getToggleTagHref(tag)} key={tag} passHref>
-                <Button
-                  variant={selectedTags.includes(tag) ? "default" : "outline"}
-                  size="sm"
-                  className="rounded-full"
-                >
-                  {tag}
-                </Button>
-              </Link>
-            ))}
-            {tags.length === 0 && !fetchError && (
-              <p className="text-sm text-gray-500">未找到標籤。</p>
-            )}
-          </div>
+          {/* Tags Selector */}
+          <TagSelector
+            user={user}
+            tags={tags}
+            selectedTags={selectedTags}
+            toggleTag={toggleTag}
+            isSaving={isSavingTags}
+            saveUserPreferences={handleSavePreferencesWithToast}
+          />
         </aside>
       </div>
-
-      <footer className="mt-12 text-center text-gray-500 text-sm">
-        由 Next.js 和 Supabase 提供支持
-      </footer>
     </div>
   );
 }
