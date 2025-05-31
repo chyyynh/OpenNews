@@ -73,12 +73,21 @@ export default {
 
 			// --- Telegram Posting ---
 			console.log(`Sending Sun Tzu summary for ${timeWindowIdentifier} to Telegram...`);
-			await sendMessageToTelegram(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHAT_ID, finalReport);
-			console.log('telegram: AI Daily report sent successfully');
+			try {
+				await sendMessageToTelegram(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHAT_ID, finalReport);
+				console.log('telegram: AI Daily report sent successfully');
+			} catch (telegramError) {
+				console.error('telegram: Failed to send message:', telegramError);
+			}
 
 			// --- Twitter Posting ---
-			await postThread(env, finalReport);
-			console.log('twitter: AI Daily report sent successfully');
+			console.log(`Posting Sun Tzu summary for ${timeWindowIdentifier} to Twitter...`);
+			try {
+				await postThread(env, finalReport);
+				console.log('twitter: AI Daily report sent successfully');
+			} catch (twitterError) {
+				console.error('twitter: Failed to post thread:', twitterError);
+			}
 		} catch (aiError) {
 			console.error('Error during AI summarization or sending:', aiError);
 			let errorMessage = '未知錯誤';
