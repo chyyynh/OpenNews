@@ -27,7 +27,7 @@ import TelegramLoginButton from "@/components/TelegramLoginButton";
 import { SendToTwitterButton } from "@/components/SendToTwitterButton";
 
 // Telegram bot name - replace with your bot name
-const TELEGRAM_BOT_NAME = "OpenNews_bot";
+const TELEGRAM_BOT_NAME = "openews_bot";
 
 export default function Home() {
   // Article state

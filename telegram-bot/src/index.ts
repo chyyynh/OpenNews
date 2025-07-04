@@ -17,11 +17,7 @@ interface Env {
 	SUPABASE_URL: string;
 	SUPABASE_SERVICE_ROLE_KEY: string;
 	TELEGRAM_BOT_TOKEN: string;
-	TELEGRAM_CHAT_ID: string;
 	GEMINI_API_KEY: string;
-	TWITTER_CLIENT_ID: string;
-	TWITTER_CLIENT_SECRET: string;
-	TWITTER_KV: KVNamespace;
 }
 
 export default {

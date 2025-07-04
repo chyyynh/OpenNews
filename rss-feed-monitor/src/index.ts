@@ -8,10 +8,6 @@ interface Env {
 	SUPABASE_URL: string;
 	SUPABASE_SERVICE_ROLE_KEY: string;
 	TELEGRAM_BOT_TOKEN: string;
-	TELEGRAM_CHAT_ID: string;
-	TELEGRAM_API_ID: string;
-	TELEGRAM_API_HASH: string;
-	TELEGRAM_SESSION: string;
 	GEMINI_API_KEY: string;
 }
 

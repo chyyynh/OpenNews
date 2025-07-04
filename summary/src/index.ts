@@ -6,7 +6,6 @@ interface Env {
 	SUPABASE_URL: string;
 	SUPABASE_SERVICE_ROLE_KEY: string;
 	TELEGRAM_BOT_TOKEN: string;
-	TELEGRAM_CHAT_ID: string;
 	GEMINI_API_KEY: string;
 	TWITTER_CLIENT_ID: string;
 	TWITTER_CLIENT_SECRET: string;
@@ -74,7 +73,29 @@ export default {
 			// --- Telegram Posting ---
 			console.log(`Sending Sun Tzu summary for ${timeWindowIdentifier} to Telegram...`);
 			try {
-				await sendMessageToTelegram(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHAT_ID, finalReport);
+				// Get all user telegram IDs from Supabase
+				const { data: users, error: usersError } = await supabase
+					.from('user_preferences')
+					.select('telegram_id');
+
+				if (usersError) {
+					console.error('Error fetching users:', usersError);
+					return;
+				}
+
+				if (!users || users.length === 0) {
+					console.log('No users found to send message to');
+					return;
+				}
+
+				// Send message to all users
+				for (const user of users) {
+					try {
+						await sendMessageToTelegram(env.TELEGRAM_BOT_TOKEN, user.telegram_id.toString(), finalReport);
+					} catch (singleUserError) {
+						console.error(`Failed to send message to user ${user.telegram_id}:`, singleUserError);
+					}
+				}
 				console.log('telegram: AI Daily report sent successfully');
 			} catch (telegramError) {
 				console.error('telegram: Failed to send message:', telegramError);
@@ -96,7 +117,20 @@ export default {
 			} else if (typeof aiError === 'string') {
 				errorMessage = aiError;
 			}
-			await sendMessageToTelegram(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHAT_ID, `兵法推演失策 (${timeWindowIdentifier}): ${errorMessage}`);
+			// Send error message to all users
+			const { data: users, error: usersError } = await supabase
+				.from('user_preferences')
+				.select('telegram_id');
+
+			if (!usersError && users && users.length > 0) {
+				for (const user of users) {
+					try {
+						await sendMessageToTelegram(env.TELEGRAM_BOT_TOKEN, user.telegram_id.toString(), `兵法推演失策 (${timeWindowIdentifier}): ${errorMessage}`);
+					} catch (singleUserError) {
+						console.error(`Failed to send error message to user ${user.telegram_id}:`, singleUserError);
+					}
+				}
+			}
 		}
 	},
 };
