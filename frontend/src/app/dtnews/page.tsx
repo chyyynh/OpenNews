@@ -233,11 +233,12 @@ export default function DTNews() {
             displayTweets.map((tweet) => (
               <div
                 key={tweet.id}
-                className={`bg-white rounded-lg shadow-md hover:shadow-lg transition-all p-4 border ${
+                className={`bg-white rounded-lg shadow-md hover:shadow-lg transition-all p-4 border cursor-pointer ${
                   selectedTweets.has(tweet.tweet_id)
                     ? "ring-2 ring-blue-500 border-blue-500"
                     : ""
                 }`}
+                onClick={() => toggleTweetSelection(tweet.tweet_id)}
               >
                 {/* Checkbox and Header */}
                 <div className="flex items-start gap-3 mb-2">
@@ -246,6 +247,7 @@ export default function DTNews() {
                     checked={selectedTweets.has(tweet.tweet_id)}
                     onChange={() => toggleTweetSelection(tweet.tweet_id)}
                     className="mt-1 w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                    onClick={(e) => e.stopPropagation()}
                   />
                   <div className="flex-1">
                     {/* Header */}
@@ -303,6 +305,7 @@ export default function DTNews() {
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-block w-full text-center bg-blue-500 hover:bg-blue-600 text-white font-medium py-1.5 px-3 text-xs rounded transition-colors"
+                      onClick={(e) => e.stopPropagation()}
                     >
                       查看推文
                     </a>
