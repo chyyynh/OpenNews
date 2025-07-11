@@ -57,10 +57,28 @@ export default function DTNews() {
     try {
       setIsLoading(true);
 
+      // 計算 UTC+8 時間範圍：前一天中午 12:00 到當天中午 12:00
+      const now = new Date();
+      const utc8Now = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+
+      // 設定當天中午 12:00 (UTC+8)
+      const todayNoon = new Date(utc8Now);
+      todayNoon.setHours(12, 0, 0, 0);
+
+      // 設定前一天中午 12:00 (UTC+8)
+      const yesterdayNoon = new Date(todayNoon);
+      yesterdayNoon.setDate(yesterdayNoon.getDate() - 1);
+
+      // 轉換回 UTC 時間用於查詢
+      const startTime = new Date(yesterdayNoon.getTime() - 8 * 60 * 60 * 1000);
+      const endTime = new Date(todayNoon.getTime() - 8 * 60 * 60 * 1000);
+
       const { data, error } = await supabase
         .from("dtnews_tweets")
         .select("*")
         .gt("view_count", 10000)
+        .gte("created_at", startTime.toISOString())
+        .lte("created_at", endTime.toISOString())
         .order("created_at", { ascending: false })
         .limit(50);
 
@@ -109,7 +127,7 @@ export default function DTNews() {
   };
 
   const generatePrompt = () => {
-    const selectedTweetList = displayTweets.filter((tweet) =>
+    const selectedTweetList = allTweets.filter((tweet) =>
       selectedTweets.has(tweet.tweet_id)
     );
 
@@ -120,9 +138,41 @@ export default function DTNews() {
 
     const tweetUrls = selectedTweetList
       .map((tweet) => tweet.tweet_url)
-      .join("\n");
+      .join("、");
 
-    const prompt = `${tweetUrls} 用跟附件文件完全一样的格式（数字标题样式，分割线，链接样式等），根据以上 ${selectedTweetList.length} 个链接的内容，用简体中文生成今天的 ${selectedTweetList.length} 条 ai 日报和日報標題，每条新闻分成两段，每段至少两句话，两段中间隔一行，第一段和标题隔一行，第二段和链接隔一行，链接样式是" 推文：原始链接文本"，每条新闻之间要有分隔线，每条新闻标题大小是普通文本但是加粗！！`;
+    const prompt = `${tweetUrls}\n用以下格式，根据以上 ${selectedTweetList.length} 个链接的内容，每个链接个生成一个新闻段落，用简体中文生成今天的 ${selectedTweetList.length} 条 AI 日报，每条新闻分成两段，每段至少两句话，两段中间隔一行，第一段和标题隔一行，第二段和链接隔一行，链接样式是“🔗 推文：原始链接文本”，每条新闻之间要有分隔线，每条新闻标题大小是普通文本但是加粗！！
+来自 GitHub 的热门 AI 项目的部分請搜尋 (https://github.com/trending) 這個網頁在本日 trending 裡面找一個 AI 相關的 repo 來寫：：
+
+---
+[月份日期] AI 日报
+[用一句话概括今日 AI 新闻主题](挑选三个标题放入，例如：Grok 4 直播发布、AI透明度框架与腾讯艺术级3D生成模型)
+
+**1️⃣ [新闻标题]**
+
+[生成至少两个段落的新闻内容]
+
+🔗 推文：[链接]
+
+---
+
+**2️⃣ [新闻标题]**
+
+[内容格式同上]
+
+🔗 推文：[链接]
+
+---
+
+[依照新闻数量重复]
+
+---
+
+**来自 GitHub 的热门 AI 项目**
+**[项目名称]**
+[项目描述，包含技术特点、应用场景、社区反响]
+🔗 项目：[GitHub链接]
+
+请严格按照上述格式生成内容。`;
 
     // 複製到剪貼板
     navigator.clipboard
