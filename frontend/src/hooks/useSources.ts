@@ -11,10 +11,10 @@ export function useSources(user: TelegramUser | null) {
   const [sources, setSources] = useState<string[]>([
     "OpenAI",
     "BWENEWS",
-    "CNBC", 
+    "CNBC",
     "arXiv cs.LG",
     "arXiv cs.AI",
-    "Google Deepmind"
+    "Google Deepmind",
   ]);
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -40,13 +40,13 @@ export function useSources(user: TelegramUser | null) {
   useEffect(() => {
     const hardcodedSources = [
       "OpenAI",
-      "BWENEWS",
-      "CNBC", 
+      "Hacker News Show HN",
+      "CNBC",
       "arXiv cs.LG",
       "arXiv cs.AI",
       "Google Deepmind",
     ];
-    
+
     console.log("Setting hardcoded sources:", hardcodedSources);
     setSources(hardcodedSources);
     setIsLoading(false);
