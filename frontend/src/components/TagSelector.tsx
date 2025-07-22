@@ -11,6 +11,12 @@ interface TagSelectorProps {
   toggleTag: (tag: string) => void;
   isSaving: boolean;
   saveUserPreferences: () => Promise<{ success: boolean; message: string }>;
+  // New props for sources
+  sources?: string[];
+  selectedSources?: string[];
+  toggleSource?: (source: string) => void;
+  isSavingSources?: boolean;
+  saveUserSourcePreferences?: () => Promise<{ success: boolean; message: string }>;
 }
 
 export function TagSelector({
@@ -20,57 +26,125 @@ export function TagSelector({
   toggleTag,
   isSaving,
   saveUserPreferences,
+  sources = [],
+  selectedSources = [],
+  toggleSource,
+  isSavingSources = false,
+  saveUserSourcePreferences,
 }: TagSelectorProps) {
-  // 把選中的 tag 放前面，未選的放後面
+  // Debug logs
+  console.log('TagSelector props:', {
+    sourcesLength: sources.length,
+    sources,
+    selectedSources,
+    toggleSource: !!toggleSource,
+    saveUserSourcePreferences: !!saveUserSourcePreferences
+  });
 
+  // 把選中的 tag 放前面，未選的放後面
   const orderedTags = [
     ...selectedTags,
     ...tags.filter((tag) => !selectedTags.includes(tag)),
   ];
 
+  // 把選中的 source 放前面，未選的放後面
+  const orderedSources = [
+    ...selectedSources,
+    ...sources.filter((source) => !selectedSources.includes(source)),
+  ];
+
   return (
-    <div className="rounded-lg p-4">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold">選擇標籤</h2>
-        <Button
-          onClick={saveUserPreferences}
-          disabled={isSaving || !user}
-          size="sm"
-          className="tg-button"
-          style={{
-            backgroundColor: "var(--tg-theme-button-color)",
-            color: "var(--tg-theme-button-text-color)",
-          }}
-        >
-          {isSaving ? (
-            <>
-              <Loader className="mr-2 h-4 w-4 animate-spin" />
-              儲存中...
-            </>
-          ) : (
-            "儲存標籤偏好"
+    <div className="space-y-6">
+      {/* Tags Section */}
+      <div className="rounded-lg p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">選擇標籤</h2>
+          <Button
+            onClick={saveUserPreferences}
+            disabled={isSaving || !user}
+            size="sm"
+            className="tg-button"
+            style={{
+              backgroundColor: "var(--tg-theme-button-color)",
+              color: "var(--tg-theme-button-text-color)",
+            }}
+          >
+            {isSaving ? (
+              <>
+                <Loader className="mr-2 h-4 w-4 animate-spin" />
+                儲存中...
+              </>
+            ) : (
+              "儲存標籤偏好"
+            )}
+          </Button>
+        </div>
+
+        <div className="flex flex-wrap gap-2 max-h-[300px] overflow-y-auto">
+          {orderedTags.map((tag) => (
+            <Button
+              key={tag}
+              variant="outline"
+              className={`px-2 text-base border ${
+                selectedTags.includes(tag)
+                  ? "bg-black text-white border-transparent"
+                  : "text-[var(--tg-theme-button-color)] border-[var(--tg-theme-button-color)]"
+              }`}
+              onClick={() => toggleTag(tag)}
+            >
+              {tag}
+            </Button>
+          ))}
+          {tags.length === 0 && (
+            <p className="text-sm text-gray-500">未找到標籤。</p>
           )}
-        </Button>
+        </div>
       </div>
 
-      <div className="flex flex-wrap gap-2 max-h-[300px] overflow-y-auto">
-        {orderedTags.map((tag) => (
+      {/* Sources Section */}
+      <div className="rounded-lg p-4 border border-gray-200">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">選擇新聞來源 ({sources.length})</h2>
           <Button
-            key={tag}
-            variant="outline"
-            className={`px-2 text-base border ${
-              selectedTags.includes(tag)
-                ? "bg-black text-white border-transparent"
-                : "text-[var(--tg-theme-button-color)] border-[var(--tg-theme-button-color)]"
-            }`}
-            onClick={() => toggleTag(tag)}
+            onClick={saveUserSourcePreferences || (() => console.log('Save sources clicked'))}
+            disabled={isSavingSources || !user}
+            size="sm"
+            className="tg-button"
+            style={{
+              backgroundColor: "var(--tg-theme-button-color)",
+              color: "var(--tg-theme-button-text-color)",
+            }}
           >
-            {tag}
+            {isSavingSources ? (
+              <>
+                <Loader className="mr-2 h-4 w-4 animate-spin" />
+                儲存中...
+              </>
+            ) : (
+              "儲存來源偏好"
+            )}
           </Button>
-        ))}
-        {tags.length === 0 && (
-          <p className="text-sm text-gray-500">未找到標籤。</p>
-        )}
+        </div>
+
+        <div className="flex flex-wrap gap-2 max-h-[300px] overflow-y-auto">
+          {orderedSources.map((source) => (
+            <Button
+              key={source}
+              variant="outline"
+              className={`px-2 text-base border ${
+                selectedSources.includes(source)
+                  ? "bg-blue-600 text-white border-transparent"
+                  : "text-blue-600 border-blue-600"
+              }`}
+              onClick={() => toggleSource ? toggleSource(source) : console.log('Toggle source:', source)}
+            >
+              {source}
+            </Button>
+          ))}
+          {sources.length === 0 && (
+            <p className="text-sm text-gray-500">載入中...</p>
+          )}
+        </div>
       </div>
     </div>
   );

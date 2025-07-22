@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { useTelegramUser } from "@/hooks/useTelegramUser";
 import { useTags } from "@/hooks/useTags";
+import { useSources } from "@/hooks/useSources";
 import { useCustomPrompt } from "@/hooks/useCustomPrompt";
 import { UserDisplay } from "@/components/UserDisplay";
 import { PromptEditor } from "@/components/PromptEditor";
@@ -82,6 +83,14 @@ export default function MiniApp() {
     saveUserPreferences,
   } = useTags(user);
   const {
+    sources,
+    selectedSources,
+    isLoading: isSourcesLoading,
+    isSaving: isSavingSources,
+    toggleSource,
+    saveUserSourcePreferences,
+  } = useSources(user);
+  const {
     customPrompt,
     tempCustomPrompt,
     setTempCustomPrompt,
@@ -103,6 +112,17 @@ export default function MiniApp() {
   // Handle saving preferences with toast notifications
   const handleSavePreferencesWithToast = async () => {
     const result = await saveUserPreferences();
+    if (result.success) {
+      toast.success(result.message);
+    } else {
+      toast.error(result.message);
+    }
+    return result;
+  };
+
+  // Handle saving source preferences with toast notifications
+  const handleSaveSourcePreferencesWithToast = async () => {
+    const result = await saveUserSourcePreferences();
     if (result.success) {
       toast.success(result.message);
     } else {
@@ -136,7 +156,7 @@ export default function MiniApp() {
           customPrompt={customPrompt}
         />
 
-        {/* Tags Selector */}
+        {/* Tags and Sources Selector */}
         <TagSelector
           user={user}
           tags={tags}
@@ -144,6 +164,11 @@ export default function MiniApp() {
           toggleTag={toggleTag}
           isSaving={isSavingTags}
           saveUserPreferences={handleSavePreferencesWithToast}
+          sources={sources}
+          selectedSources={selectedSources}
+          toggleSource={toggleSource}
+          isSavingSources={isSavingSources}
+          saveUserSourcePreferences={handleSaveSourcePreferencesWithToast}
         />
       </div>
 

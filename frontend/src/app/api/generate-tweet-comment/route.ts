@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// IMPORTANT: You will need to install the Gemini SDK and configure your API key.
-// For example, using the official Google AI SDK:
-// import { GoogleGenerativeAI } from "@google/generative-ai";
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
+const DEEPSEEK_BASE_URL = "https://api.deepseek.com";
 
 export async function POST(request: Request) {
   try {
@@ -18,32 +15,58 @@ export async function POST(request: Request) {
       );
     }
 
-    // --- Placeholder for Gemini API Call ---
-    // Replace this with your actual Gemini API call logic.
-    // Ensure you handle API key security appropriately (e.g., environment variables).
-    console.log("Received for Gemini:", { title, url, summary, customPrompt });
+    // DeepSeek API Call
+    console.log("Received for DeepSeek:", {
+      title,
+      url,
+      summary,
+      customPrompt,
+    });
 
-    // Example prompt structure (adjust as needed for Gemini 1.5 Flash)
     const prompt = `請針對以下新聞使用 "繁體中文" 撰寫一則適合發布在 Twitter 上的評論（限 200 字內) 不要附上連結
       ${customPrompt}
       標題: ${title}
       摘要: ${summary || "No summary available."}
       連結: ${url}`;
 
-    console.log("Generated prompt for Gemini:", prompt); // Using the prompt variable
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const geminiComment = response.text();
+    console.log("Generated prompt for DeepSeek:", prompt);
 
-    if (!geminiComment) {
+    const response = await fetch(`${DEEPSEEK_BASE_URL}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "deepseek-chat",
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        max_tokens: 500,
+        temperature: 0.7,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `DeepSeek API error: ${response.status} ${response.statusText}`
+      );
+    }
+
+    const data = await response.json();
+    const comment = data.choices?.[0]?.message?.content;
+
+    if (!comment) {
       return NextResponse.json(
-        { error: "Failed to generate comment from Gemini" },
+        { error: "Failed to generate comment from DeepSeek" },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ comment: geminiComment });
+    return NextResponse.json({ comment });
   } catch (error) {
     console.error("Error in generate-tweet-comment API:", error);
     if (error instanceof Error) {

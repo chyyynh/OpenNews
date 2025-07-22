@@ -40,9 +40,9 @@ async function notifyMatchedUsers(supabase: any, env: Env, tags: Array<string>, 
 }
 
 async function processAndInsertArticle(supabase: any, env: Env, item: any, feed?: any, source_type?: string) {
+	console.log(`[${feed.name}] Starting processAndInsertArticle for: ${item.title || item.text || 'No title'}`);
+	
 	const pubDate = item.pubDate || item.isoDate || null;
-	const summary = item.description || item['content:encoded'] || item.text || '';
-	// const categories = item.category ? (Array.isArray(item.category) ? item.category : [item.category]) : [];
 	const url = item.link || item.url || `https://t.me/${feed.RSSLink}/${item.message_id}`;
 
 	// Scrape article content if it's an RSS feed item with a link
@@ -51,38 +51,34 @@ async function processAndInsertArticle(supabase: any, env: Env, item: any, feed?
 		crawled_content = await scrapeArticleContent(item.link);
 	}
 
-	const ai_summary = await SummaryByAI(item.title || item.text, crawled_content, env.GEMINI_API_KEY);
-	const tags = await tagNews(env.GEMINI_API_KEY, item.title || item.text || item.news_title, crawled_content);
-
+	console.log(`[${feed.name}] Preparing insert data...`);
+	
+	// For arXiv feeds, use description as summary
+	const summary = (feed.name && feed.name.includes('arXiv')) 
+		? (item.description || item.summary || null)
+		: null;
+	
 	const insert = {
 		url: url,
 		title: item.title || item.text || item.news_title || 'No Title',
 		source: feed.name || item.source_name || 'Unknown',
-		published_date: new Date(pubDate) || new Date(),
+		published_date: pubDate ? new Date(pubDate) : new Date(),
 		scraped_date: new Date(),
-		keywords: tags.keywords || [],
-		tags: tags.categories || [],
-		tokens: tags.tokens || [],
-		summary: ai_summary,
-		source_type: source_type || `websocket`,
-		content: crawled_content,
+		keywords: [], // Empty array for now, will be filled by separate cronjob
+		tags: [], // Empty array for now, will be filled by separate cronjob
+		tokens: [], // Empty array for now, will be filled by separate cronjob
+		summary: summary, // For arXiv: use description, others: null (filled by separate cronjob)
+		source_type: source_type || 'rss',
+		content: crawled_content || null,
 	};
 
+	console.log(`[${feed.name}] Inserting article into database...`);
 	const { error: insertError } = await supabase.from('articles').insert([insert]);
 
 	if (insertError) {
 		console.error(`[${feed.name}] Insert error:`, insertError);
 	} else {
-		const aiCommentary = await CommentByAI(item.title || item.text, summary, env.GEMINI_API_KEY);
-		const tweetText = encodeURIComponent(aiCommentary);
-		const tweetUrl = encodeURIComponent(url);
-		const twitterIntentUrl = `https://twitter.com/intent/tweet?text=${tweetText}&url=${tweetUrl}`;
-		const twitterPostLink = `[Send to Twitter](${twitterIntentUrl})`;
-		const contentSenttoUser = `${aiCommentary.trim()}\n\n${ai_summary.trim()}\n\n- [連結](${url}) | ${twitterPostLink}`;
-
-		await notifyMatchedUsers(supabase, env, tags.categories, contentSenttoUser);
-
-		console.log(`[${feed.name}] New article: ${item.title || item.text} tags ${JSON.stringify(tags)}`);
+		console.log(`[${feed.name}] ✅ Inserted article: ${item.title || item.text} (${url})`);
 	}
 }
 
@@ -127,7 +123,7 @@ export default {
 				console.log(`Processing feed: ${feed.name}`);
 				if (feed.type === 'rss') {
 					const res = await fetch(feed.RSSLink);
-					
+
 					// Check for rate limiting (429) or other HTTP errors
 					if (!res.ok) {
 						if (res.status === 429) {
@@ -138,7 +134,7 @@ export default {
 							return;
 						}
 					}
-					
+
 					const xml = await res.text();
 					const data = parser.parse(xml);
 
