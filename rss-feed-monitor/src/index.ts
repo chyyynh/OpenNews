@@ -127,6 +127,18 @@ export default {
 				console.log(`Processing feed: ${feed.name}`);
 				if (feed.type === 'rss') {
 					const res = await fetch(feed.RSSLink);
+					
+					// Check for rate limiting (429) or other HTTP errors
+					if (!res.ok) {
+						if (res.status === 429) {
+							console.warn(`[${feed.name}] Rate limited (429), skipping this round`);
+							return;
+						} else {
+							console.error(`[${feed.name}] HTTP error: ${res.status} ${res.statusText}`);
+							return;
+						}
+					}
+					
 					const xml = await res.text();
 					const data = parser.parse(xml);
 
