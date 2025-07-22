@@ -5,15 +5,25 @@ import { useSearchParams } from "next/navigation";
 import type { TelegramUser } from "@/types";
 
 export function useSources(user: TelegramUser | null) {
-  console.log('useSources hook called with user:', user?.id);
-  
+  console.log("useSources hook called with user:", user?.id);
+
   const searchParams = useSearchParams();
-  const [sources, setSources] = useState<string[]>([]);
+  const [sources, setSources] = useState<string[]>([
+    "OpenAI",
+    "BWENEWS",
+    "CNBC", 
+    "arXiv cs.LG",
+    "arXiv cs.AI",
+    "Google Deepmind"
+  ]);
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  
-  console.log('useSources state:', { sourcesLength: sources.length, isLoading });
+
+  console.log("useSources state:", {
+    sourcesLength: sources.length,
+    isLoading,
+  });
 
   // Get selected sources from URL
   const getSelectedSources = useCallback(() => {
@@ -26,60 +36,20 @@ export function useSources(user: TelegramUser | null) {
     setSelectedSources(getSelectedSources());
   }, [getSelectedSources]);
 
-  // Fetch all available sources from Supabase
+  // Set hardcoded available sources
   useEffect(() => {
-    async function fetchAvailableSources() {
-      console.log('Fetching available sources from database...');
-      
-      const fallbackSources = [
-        "OpenAI",
-        "BWENEWS", 
-        "CNBC",
-        "arXiv cs.LG",
-        "arXiv cs.AI",
-        "Google Deepmind"
-      ];
-      
-      try {
-        const response = await fetch('/api/user/sources/available');
-        console.log('Sources API response status:', response.status);
-        
-        if (!response.ok) {
-          console.warn('Sources API failed, using fallback sources');
-          setSources(fallbackSources);
-          setIsLoading(false);
-          return;
-        }
-        
-        const data = await response.json();
-        console.log('Sources API response data:', data);
-        
-        // Use API data if available, otherwise fallback
-        const availableSources = data.sources && Array.isArray(data.sources) && data.sources.length > 0 
-          ? data.sources 
-          : fallbackSources;
-        
-        if (data.note) {
-          console.log('API note:', data.note);
-        }
-          
-        console.log('Final sources list:', availableSources);
-        console.log('About to call setSources with:', availableSources);
-        setSources(availableSources);
-        console.log('setSources called successfully');
-        
-      } catch (error) {
-        console.error('Error fetching sources:', error);
-        console.log('Using fallback sources due to error');
-        console.log('Fallback sources:', fallbackSources);
-        setSources(fallbackSources);
-        console.log('Fallback setSources called');
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    fetchAvailableSources();
+    const hardcodedSources = [
+      "OpenAI",
+      "BWENEWS",
+      "CNBC", 
+      "arXiv cs.LG",
+      "arXiv cs.AI",
+      "Google Deepmind",
+    ];
+    
+    console.log("Setting hardcoded sources:", hardcodedSources);
+    setSources(hardcodedSources);
+    setIsLoading(false);
   }, []);
 
   // Fetch user preferences from API
@@ -108,8 +78,8 @@ export function useSources(user: TelegramUser | null) {
   // Helper function to toggle sources
   const toggleSource = (source: string) => {
     setSelectedSources((prev) =>
-      prev.includes(source) 
-        ? prev.filter((s) => s !== source) 
+      prev.includes(source)
+        ? prev.filter((s) => s !== source)
         : [...prev, source]
     );
   };

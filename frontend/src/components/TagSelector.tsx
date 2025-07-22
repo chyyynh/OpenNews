@@ -16,7 +16,10 @@ interface TagSelectorProps {
   selectedSources?: string[];
   toggleSource?: (source: string) => void;
   isSavingSources?: boolean;
-  saveUserSourcePreferences?: () => Promise<{ success: boolean; message: string }>;
+  saveUserSourcePreferences?: () => Promise<{
+    success: boolean;
+    message: string;
+  }>;
 }
 
 export function TagSelector({
@@ -33,13 +36,14 @@ export function TagSelector({
   saveUserSourcePreferences,
 }: TagSelectorProps) {
   // Debug logs
-  console.log('TagSelector props:', {
-    sourcesLength: sources.length,
-    sources,
-    selectedSources,
-    toggleSource: !!toggleSource,
-    saveUserSourcePreferences: !!saveUserSourcePreferences
-  });
+  console.log("TagSelector sources length:", sources.length);
+  console.log("TagSelector sources array:", sources);
+  console.log("TagSelector selectedSources:", selectedSources);
+  console.log("TagSelector toggleSource exists:", !!toggleSource);
+  console.log(
+    "TagSelector saveUserSourcePreferences exists:",
+    !!saveUserSourcePreferences
+  );
 
   // 把選中的 tag 放前面，未選的放後面
   const orderedTags = [
@@ -97,52 +101,6 @@ export function TagSelector({
           ))}
           {tags.length === 0 && (
             <p className="text-sm text-gray-500">未找到標籤。</p>
-          )}
-        </div>
-      </div>
-
-      {/* Sources Section */}
-      <div className="rounded-lg p-4 border border-gray-200">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">選擇新聞來源 ({sources.length})</h2>
-          <Button
-            onClick={saveUserSourcePreferences || (() => console.log('Save sources clicked'))}
-            disabled={isSavingSources || !user}
-            size="sm"
-            className="tg-button"
-            style={{
-              backgroundColor: "var(--tg-theme-button-color)",
-              color: "var(--tg-theme-button-text-color)",
-            }}
-          >
-            {isSavingSources ? (
-              <>
-                <Loader className="mr-2 h-4 w-4 animate-spin" />
-                儲存中...
-              </>
-            ) : (
-              "儲存來源偏好"
-            )}
-          </Button>
-        </div>
-
-        <div className="flex flex-wrap gap-2 max-h-[300px] overflow-y-auto">
-          {orderedSources.map((source) => (
-            <Button
-              key={source}
-              variant="outline"
-              className={`px-2 text-base border ${
-                selectedSources.includes(source)
-                  ? "bg-blue-600 text-white border-transparent"
-                  : "text-blue-600 border-blue-600"
-              }`}
-              onClick={() => toggleSource ? toggleSource(source) : console.log('Toggle source:', source)}
-            >
-              {source}
-            </Button>
-          ))}
-          {sources.length === 0 && (
-            <p className="text-sm text-gray-500">載入中...</p>
           )}
         </div>
       </div>

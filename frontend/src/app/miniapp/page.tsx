@@ -82,6 +82,7 @@ export default function MiniApp() {
     toggleTag,
     saveUserPreferences,
   } = useTags(user);
+  console.log('About to call useSources...');
   const {
     sources,
     selectedSources,
@@ -90,6 +91,7 @@ export default function MiniApp() {
     toggleSource,
     saveUserSourcePreferences,
   } = useSources(user);
+  console.log('useSources returned:', { sourcesLength: sources?.length, toggleSource: !!toggleSource });
   const {
     customPrompt,
     tempCustomPrompt,

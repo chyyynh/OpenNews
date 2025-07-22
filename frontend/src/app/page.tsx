@@ -4,13 +4,15 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
-import { Loader, LogOut } from "lucide-react";
+import { Loader, LogOut, ChevronDown } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 
@@ -19,6 +21,7 @@ import type { ArticleItem, TelegramUser } from "@/types";
 
 import { useTelegramUser } from "@/hooks/useTelegramUser";
 import { useTags } from "@/hooks/useTags";
+import { useSources } from "@/hooks/useSources";
 import { useCustomPrompt } from "@/hooks/useCustomPrompt";
 import { UserDisplay } from "@/components/UserDisplay";
 import { PromptEditor } from "@/components/PromptEditor";
@@ -35,6 +38,9 @@ export default function Home() {
   const [fetchError, setFetchError] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthLoading, setIsAuthLoading] = useState(false);
+
+  // Time filter state
+  const [selectedTimeFilter, setSelectedTimeFilter] = useState<string>('7day');
 
   // For web version (not Mini App), we need to handle user state manually
   const [webUser, setWebUser] = useState<TelegramUser | null>(null);
@@ -79,6 +85,15 @@ export default function Home() {
   } = useTags(user);
 
   const {
+    sources,
+    selectedSources,
+    isLoading: isSourcesLoading,
+    isSaving: isSavingSources,
+    toggleSource,
+    saveUserSourcePreferences,
+  } = useSources(user);
+
+  const {
     customPrompt,
     tempCustomPrompt,
     setTempCustomPrompt,
@@ -88,6 +103,35 @@ export default function Home() {
   } = useCustomPrompt(user);
 
   const searchParams = useSearchParams();
+
+  // Time filter options
+  const timeFilterOptions = [
+    { value: 'today', label: 'Today' },
+    { value: '7day', label: '7 Days' },
+    { value: '1month', label: '1 Month' },
+    { value: '3month', label: '3 Months' },
+  ];
+
+  // Get date filter based on selected time filter
+  const getDateFilter = (timeFilter: string) => {
+    const now = new Date();
+    switch (timeFilter) {
+      case 'today':
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        return today.toISOString();
+      case '7day':
+        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        return sevenDaysAgo.toISOString();
+      case '1month':
+        const oneMonthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+        return oneMonthAgo.toISOString();
+      case '3month':
+        const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
+        return threeMonthsAgo.toISOString();
+      default:
+        return null;
+    }
+  };
 
   // Generate tag toggle href
   const getToggleTagHref = useCallback(
@@ -104,7 +148,7 @@ export default function Home() {
     [selectedTags]
   );
 
-  // Fetch articles when selectedTags change
+  // Fetch articles when selectedTags, selectedSources, or selectedTimeFilter change
   useEffect(() => {
     let isMounted = true;
     const controller = new AbortController();
@@ -116,11 +160,23 @@ export default function Home() {
       try {
         let query = supabase
           .from("articles")
-          .select("id, title, url, published_date, tags, keywords, summary")
+          .select(
+            "id, title, url, published_date, tags, keywords, summary, source"
+          )
           .order("published_date", { ascending: false });
 
         if (selectedTags.length > 0) {
           query = query.overlaps("tags", selectedTags);
+        }
+
+        if (selectedSources.length > 0) {
+          query = query.in("source", selectedSources);
+        }
+
+        // Add time filter
+        const dateFilter = getDateFilter(selectedTimeFilter);
+        if (dateFilter) {
+          query = query.gte("published_date", dateFilter);
         }
 
         query = query.limit(20);
@@ -157,7 +213,7 @@ export default function Home() {
       controller.abort();
       clearTimeout(timeoutId);
     };
-  }, [selectedTags]);
+  }, [selectedTags, selectedSources, selectedTimeFilter]);
 
   // Handle saving prompt with toast notifications
   const handleSavePromptWithToast = async () => {
@@ -173,6 +229,17 @@ export default function Home() {
   // Handle saving preferences with toast notifications
   const handleSavePreferencesWithToast = async () => {
     const result = await saveUserPreferences();
+    if (result.success) {
+      toast.success(result.message);
+    } else {
+      toast.error(result.message);
+    }
+    return result;
+  };
+
+  // Handle saving source preferences with toast notifications
+  const handleSaveSourcePreferencesWithToast = async () => {
+    const result = await saveUserSourcePreferences();
     if (result.success) {
       toast.success(result.message);
     } else {
@@ -255,6 +322,46 @@ export default function Home() {
         {telegramUser && <UserDisplay user={telegramUser} />}
       </header>
 
+      {/* Time and Sources Filter - appears above news */}
+      <div className="mb-6">
+        <div className="flex flex-wrap gap-2 items-center">
+          {/* Time Filter Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="flex items-center gap-2">
+                {timeFilterOptions.find(option => option.value === selectedTimeFilter)?.label}
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuRadioGroup value={selectedTimeFilter} onValueChange={setSelectedTimeFilter}>
+                {timeFilterOptions.map((option) => (
+                  <DropdownMenuRadioItem key={option.value} value={option.value}>
+                    {option.label}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          
+          {/* Separator */}
+          <div className="w-px h-6 bg-gray-300 mx-2"></div>
+          
+          {/* Sources Filter */}
+          {sources.map((source) => (
+            <Button
+              key={source}
+              variant={selectedSources.includes(source) ? "default" : "outline"}
+              size="sm"
+              onClick={() => toggleSource && toggleSource(source)}
+              className="rounded-full"
+            >
+              {source}
+            </Button>
+          ))}
+        </div>
+      </div>
+
       {/* Mobile: Prompt editor and tags at the top */}
       <div className="md:hidden mb-6 space-y-4">
         <PromptEditor
@@ -267,7 +374,7 @@ export default function Home() {
           customPrompt={customPrompt}
         />
 
-        {/* Tags Selector */}
+        {/* Tags and Sources Selector */}
         <TagSelector
           user={user}
           tags={tags}
@@ -275,6 +382,11 @@ export default function Home() {
           toggleTag={toggleTag}
           isSaving={isSavingTags}
           saveUserPreferences={handleSavePreferencesWithToast}
+          sources={sources}
+          selectedSources={selectedSources}
+          toggleSource={toggleSource}
+          isSavingSources={isSavingSources}
+          saveUserSourcePreferences={handleSaveSourcePreferencesWithToast}
         />
       </div>
 
@@ -367,7 +479,7 @@ export default function Home() {
           </div>
           <hr className="mb-4"></hr>
 
-          {/* Tags Selector */}
+          {/* Tags and Sources Selector */}
           <TagSelector
             user={user}
             tags={tags}
@@ -375,6 +487,11 @@ export default function Home() {
             toggleTag={toggleTag}
             isSaving={isSavingTags}
             saveUserPreferences={handleSavePreferencesWithToast}
+            sources={sources}
+            selectedSources={selectedSources}
+            toggleSource={toggleSource}
+            isSavingSources={isSavingSources}
+            saveUserSourcePreferences={handleSaveSourcePreferencesWithToast}
           />
         </aside>
       </div>

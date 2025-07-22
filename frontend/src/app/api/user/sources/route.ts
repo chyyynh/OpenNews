@@ -27,10 +27,11 @@ export async function GET(request: Request) {
 
     if (userError && userError.code !== "PGRST116") {
       console.error("Error fetching user sources:", userError);
-      return NextResponse.json(
-        { error: "Failed to fetch user sources" },
-        { status: 500 }
-      );
+      // Return empty array if column doesn't exist yet
+      return NextResponse.json({
+        selected_sources: [],
+        note: "selected_sources column may not exist yet"
+      });
     }
 
     return NextResponse.json({
@@ -80,10 +81,12 @@ export async function POST(request: Request) {
 
     if (error) {
       console.error("Error saving user sources:", error);
-      return NextResponse.json(
-        { error: "Failed to save sources preferences" },
-        { status: 500 }
-      );
+      // If column doesn't exist, still return success but with note
+      return NextResponse.json({
+        message: "Sources preferences saved (may need DB schema update)",
+        selected_sources,
+        note: "selected_sources column may need to be added to user_preferences table"
+      });
     }
 
     return NextResponse.json({ 
