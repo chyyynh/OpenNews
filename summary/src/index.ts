@@ -1,15 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
-import { sendMessageToTelegram, summarizeWithGemini } from './utils';
+import { sendMessageToTelegram, summarizeWithDeepSeek } from './utils';
 import { postThread } from './twitter';
 
 interface Env {
 	SUPABASE_URL: string;
 	SUPABASE_SERVICE_ROLE_KEY: string;
 	TELEGRAM_BOT_TOKEN: string;
-	GEMINI_API_KEY: string;
 	TWITTER_CLIENT_ID: string;
 	TWITTER_CLIENT_SECRET: string;
 	TWITTER_KV: KVNamespace;
+	GEMINI_API_KEY: string;
+	DEEPSEEK_API_KEY: string;
 }
 
 export default {
@@ -67,16 +68,14 @@ export default {
 
 		try {
 			// Use the new AI summarization utility function
-			const summary = await summarizeWithGemini(env.GEMINI_API_KEY, articles, 'Sun Tzu');
+			const summary = await summarizeWithDeepSeek(env.DEEPSEEK_API_KEY, articles, 'Sun Tzu');
 			const finalReport = `[summary] ${timeWindowIdentifier}\n\n${summary}`;
 
 			// --- Telegram Posting ---
 			console.log(`Sending Sun Tzu summary for ${timeWindowIdentifier} to Telegram...`);
 			try {
 				// Get all user telegram IDs from Supabase
-				const { data: users, error: usersError } = await supabase
-					.from('user_preferences')
-					.select('telegram_id');
+				const { data: users, error: usersError } = await supabase.from('user_preferences').select('telegram_id');
 
 				if (usersError) {
 					console.error('Error fetching users:', usersError);
@@ -118,14 +117,16 @@ export default {
 				errorMessage = aiError;
 			}
 			// Send error message to all users
-			const { data: users, error: usersError } = await supabase
-				.from('user_preferences')
-				.select('telegram_id');
+			const { data: users, error: usersError } = await supabase.from('user_preferences').select('telegram_id');
 
 			if (!usersError && users && users.length > 0) {
 				for (const user of users) {
 					try {
-						await sendMessageToTelegram(env.TELEGRAM_BOT_TOKEN, user.telegram_id.toString(), `兵法推演失策 (${timeWindowIdentifier}): ${errorMessage}`);
+						await sendMessageToTelegram(
+							env.TELEGRAM_BOT_TOKEN,
+							user.telegram_id.toString(),
+							`兵法推演失策 (${timeWindowIdentifier}): ${errorMessage}`
+						);
 					} catch (singleUserError) {
 						console.error(`Failed to send error message to user ${user.telegram_id}:`, singleUserError);
 					}

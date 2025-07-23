@@ -16,8 +16,11 @@ export async function sendMessageToTelegram(token: string, chatId: string, messa
 
 		if (!response.ok) {
 			const errorBody = await response.text(); // Get the response body for detailed error
-			console.error('Error sending message to Telegram:', response.status, response.statusText, 'Body:', errorBody);
-			// Throw an error to propagate it back if needed, or handle it here
+			if (response.status === 401) {
+				console.warn(`User ${chatId} hasn't started conversation with bot (401 Unauthorized)`);
+			} else {
+				console.error('Error sending message to Telegram:', response.status, response.statusText, 'Body:', errorBody);
+			}
 			throw new Error(`Telegram API Error: ${response.status} ${response.statusText} - ${errorBody}`);
 		}
 	} catch (error) {
@@ -28,7 +31,6 @@ export async function sendMessageToTelegram(token: string, chatId: string, messa
 }
 
 // --- New AI Summarization Utility Function ---
-import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 
 // Define a simple structure for articles expected by the summarizer
 interface ArticleForSummary {
@@ -41,29 +43,33 @@ interface ArticleForSummary {
 	};
 }
 
-export async function summarizeWithGemini(
+// DeepSeek API response types
+interface DeepSeekMessage {
+	role: string;
+	content: string;
+}
+
+interface DeepSeekChoice {
+	message: DeepSeekMessage;
+	finish_reason: string;
+	index: number;
+}
+
+interface DeepSeekResponse {
+	choices: DeepSeekChoice[];
+	usage?: {
+		prompt_tokens: number;
+		completion_tokens: number;
+		total_tokens: number;
+	};
+}
+
+export async function summarizeWithDeepSeek(
 	apiKey: string,
 	articles: ArticleForSummary[],
 	style?: string // Add optional style parameter
 ): Promise<string> {
 	try {
-		const genAI = new GoogleGenerativeAI(apiKey);
-		const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-
-		const generationConfig = {
-			temperature: 0.7,
-			topK: 1,
-			topP: 1,
-			maxOutputTokens: 1024, // Aiming for ~4000 chars
-		};
-
-		const safetySettings = [
-			{ category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-			{ category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-			{ category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-			{ category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-		];
-
 		// Prepare the prompt using the structured data
 		let articlesForPrompt = '';
 		// Group by category for better structure in the prompt
@@ -84,50 +90,38 @@ export async function summarizeWithGemini(
 		}
 
 		// --- Construct Prompt based on Style ---
-		let prompt = '';
-		if (style === 'Sun Tzu') {
-			prompt = `吾乃軍師，請分析以下敵情（Crypto 新聞），以《孫子兵法》之慧，言簡意賅，提煉精要，洞察機遇與風險，呈報軍情摘要。
-				摘要須控制在 500 字元內，仿孫子口吻，點明關鍵事件、涉及之代幣及情報來源。
+		let prompt = '你是專業的 AI 記者 請總結這些新聞與研究文章，並生成一份簡潔的中文摘要報告。';
 
-				敵情列表：
-				---
-				${articlesForPrompt}
-				---
-
-				軍師，請速呈報：`;
-			console.log('Using Sun Tzu style prompt.');
-		} else {
-			// Default prompt
-			prompt = `請根據以下 Crypto 新聞文章列表，產生一份簡潔的中文摘要報告。
-				目標是總結當天的主要新聞亮點，並確保最終報告的總長度嚴格控制在 500 個字元以內。
-				請保留重要的資訊，例如主要事件、涉及的幣種和來源。
-
-				新聞列表：
-				---
-				${articlesForPrompt}
-				---
-
-				請生成摘要報告：`;
-			console.log('Using default summary prompt.');
-		}
-		// --- End Prompt Construction ---
-
-		console.log('Sending request to Gemini API via utils...');
-		const result = await model.generateContent({
-			contents: [{ role: 'user', parts: [{ text: prompt }] }],
-			generationConfig,
-			safetySettings,
+		console.log('Sending request to DeepSeek API via utils...');
+		const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: `Bearer ${apiKey}`,
+			},
+			body: JSON.stringify({
+				model: 'deepseek-chat',
+				messages: [{ role: 'user', content: prompt }],
+				temperature: 0.7,
+				max_tokens: 1024,
+			}),
 		});
 
-		if (!result.response) {
-			throw new Error('Gemini API Error: No response received.');
+		if (!response.ok) {
+			const errorBody = await response.text();
+			throw new Error(`DeepSeek API Error: ${response.status} ${response.statusText} - ${errorBody}`);
 		}
 
-		const summary = result.response.text();
-		console.log('Gemini Summary Received via utils (length):', summary.length);
+		const data: DeepSeekResponse = await response.json();
+		if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+			throw new Error('DeepSeek API Error: No response received.');
+		}
+
+		const summary = data.choices[0].message.content;
+		console.log('DeepSeek Summary Received via utils (length):', summary.length);
 
 		if (summary.length > 4096) {
-			console.warn(`Gemini summary exceeded 4096 chars (${summary.length}). Returning truncated version.`);
+			console.warn(`DeepSeek summary exceeded 4096 chars (${summary.length}). Returning truncated version.`);
 			return summary.substring(0, 4096); // Truncate if needed, although we asked for less
 		}
 
