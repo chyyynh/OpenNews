@@ -5,9 +5,9 @@ import { TelegramUser } from "@/types";
 
 export function useCustomPrompt(user: TelegramUser | null) {
   const [customPrompt, setCustomPrompt] =
-    useState<string>("請用孫子兵法的語氣");
+    useState<string>("你是專業的 ai 記者 請精簡評論");
   const [tempCustomPrompt, setTempCustomPrompt] =
-    useState<string>("請用孫子兵法的語氣");
+    useState<string>("你是專業的 ai 記者 請精簡評論");
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
