@@ -45,6 +45,8 @@ export function useSources(user: TelegramUser | null) {
       "arXiv cs.LG",
       "arXiv cs.AI",
       "Google Deepmind",
+      "Hacker News AI",
+      "Techcrunch",
     ];
 
     console.log("Setting hardcoded sources:", hardcodedSources);
