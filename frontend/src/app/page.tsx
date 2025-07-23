@@ -322,7 +322,7 @@ export default function Home() {
               <TelegramLoginButton
                 botName={TELEGRAM_BOT_NAME}
                 onAuth={handleTelegramAuth}
-                buttonSize="medium"
+                buttonSize="large"
                 cornerRadius={8}
                 usePic={true}
                 lang="zh-hant"
