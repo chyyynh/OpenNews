@@ -38,6 +38,7 @@ export default function TelegramLoginButton({
   useEffect(() => {
     // Define the callback function that Telegram will call
     window.onTelegramAuth = (user: TelegramUser) => {
+      console.log('Telegram auth callback received:', user);
       onAuth(user);
     };
 
@@ -48,36 +49,19 @@ export default function TelegramLoginButton({
   }, [onAuth]);
 
   return (
-    <>
+    <div ref={containerRef} className="telegram-login-container">
       <Script
+        async
         src="https://telegram.org/js/telegram-widget.js?22"
-        strategy="lazyOnload"
-        onLoad={() => {
-          if (containerRef.current) {
-            // Clear previous widget if any
-            containerRef.current.innerHTML = "";
-
-            // Create the Telegram login button
-            const script = document.createElement("script");
-            script.async = true;
-            script.src = "https://telegram.org/js/telegram-widget.js?22";
-            script.setAttribute("data-telegram-login", botName);
-            script.setAttribute("data-size", buttonSize);
-            script.setAttribute("data-radius", cornerRadius.toString());
-            script.setAttribute(
-              "data-request-access",
-              requestAccess ? "write" : "read"
-            );
-            script.setAttribute("data-userpic", usePic ? "true" : "false");
-            script.setAttribute("data-lang", lang);
-            script.setAttribute("data-onauth", "onTelegramAuth(user)");
-
-            containerRef.current.appendChild(script);
-          }
-        }}
+        data-telegram-login={botName}
+        data-size={buttonSize}
+        data-radius={cornerRadius.toString()}
+        data-request-access={requestAccess ? "write" : "read"}
+        data-userpic={usePic ? "true" : "false"}
+        data-lang={lang}
+        data-onauth="onTelegramAuth(user)"
       />
-      <div ref={containerRef} className="telegram-login-container"></div>
-    </>
+    </div>
   );
 }
 

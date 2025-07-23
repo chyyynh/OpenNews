@@ -69,7 +69,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Telegram bot name - replace with your bot name
-const TELEGRAM_BOT_NAME = "OpenNews_bot";
+const TELEGRAM_BOT_NAME = "openews_bot";
 
 export default function MiniApp() {
   // Custom hooks
