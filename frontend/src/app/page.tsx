@@ -40,7 +40,7 @@ export default function Home() {
   const [isAuthLoading, setIsAuthLoading] = useState(false);
 
   // Time filter state
-  const [selectedTimeFilter, setSelectedTimeFilter] = useState<string>('7day');
+  const [selectedTimeFilter, setSelectedTimeFilter] = useState<string>("7day");
 
   // For web version (not Mini App), we need to handle user state manually
   const [webUser, setWebUser] = useState<TelegramUser | null>(null);
@@ -106,27 +106,39 @@ export default function Home() {
 
   // Time filter options
   const timeFilterOptions = [
-    { value: 'today', label: 'Today' },
-    { value: '7day', label: '7 Days' },
-    { value: '1month', label: '1 Month' },
-    { value: '3month', label: '3 Months' },
+    { value: "today", label: "Today" },
+    { value: "7day", label: "7 Days" },
+    { value: "1month", label: "1 Month" },
+    { value: "3month", label: "3 Months" },
   ];
 
   // Get date filter based on selected time filter
   const getDateFilter = (timeFilter: string) => {
     const now = new Date();
     switch (timeFilter) {
-      case 'today':
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      case "today":
+        const today = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate()
+        );
         return today.toISOString();
-      case '7day':
+      case "7day":
         const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         return sevenDaysAgo.toISOString();
-      case '1month':
-        const oneMonthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+      case "1month":
+        const oneMonthAgo = new Date(
+          now.getFullYear(),
+          now.getMonth() - 1,
+          now.getDate()
+        );
         return oneMonthAgo.toISOString();
-      case '3month':
-        const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
+      case "3month":
+        const threeMonthsAgo = new Date(
+          now.getFullYear(),
+          now.getMonth() - 3,
+          now.getDate()
+        );
         return threeMonthsAgo.toISOString();
       default:
         return null;
@@ -329,24 +341,34 @@ export default function Home() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="flex items-center gap-2">
-                {timeFilterOptions.find(option => option.value === selectedTimeFilter)?.label}
+                {
+                  timeFilterOptions.find(
+                    (option) => option.value === selectedTimeFilter
+                  )?.label
+                }
                 <ChevronDown className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              <DropdownMenuRadioGroup value={selectedTimeFilter} onValueChange={setSelectedTimeFilter}>
+              <DropdownMenuRadioGroup
+                value={selectedTimeFilter}
+                onValueChange={setSelectedTimeFilter}
+              >
                 {timeFilterOptions.map((option) => (
-                  <DropdownMenuRadioItem key={option.value} value={option.value}>
+                  <DropdownMenuRadioItem
+                    key={option.value}
+                    value={option.value}
+                  >
                     {option.label}
                   </DropdownMenuRadioItem>
                 ))}
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>
-          
+
           {/* Separator */}
           <div className="w-px h-6 bg-gray-300 mx-2"></div>
-          
+
           {/* Sources Filter */}
           {sources.map((source) => (
             <Button
