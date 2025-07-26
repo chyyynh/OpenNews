@@ -370,17 +370,60 @@ export default function Home() {
           <div className="w-px h-6 bg-gray-300 mx-2"></div>
 
           {/* Sources Filter */}
-          {sources.map((source) => (
-            <Button
-              key={source}
-              variant={selectedSources.includes(source) ? "default" : "outline"}
-              size="sm"
-              onClick={() => toggleSource && toggleSource(source)}
-              className="rounded-full"
-            >
-              {source}
-            </Button>
-          ))}
+          {(() => {
+            // Helper function to get logo path for source
+            const getSourceLogo = (source: string): string | null => {
+              const logoMap: Record<string, string> = {
+                "OpenAI": "/logo/openai.svg",
+                "Google Deepmind": "/logo/deepmind-color.svg", 
+                "Anthropic": "/logo/anthropic.svg",
+                // Add normalized variations
+                "openai": "/logo/openai.svg",
+                "google deepmind": "/logo/deepmind-color.svg",
+                "anthropic": "/logo/anthropic.svg",
+              };
+              
+              // Try exact match first, then lowercase match
+              return logoMap[source] || logoMap[source.toLowerCase()] || null;
+            };
+
+            // Sort sources: sources with logos first, then others
+            const sortedSources = [...sources].sort((a, b) => {
+              const aHasLogo = !!getSourceLogo(a);
+              const bHasLogo = !!getSourceLogo(b);
+              
+              if (aHasLogo && !bHasLogo) return -1;
+              if (!aHasLogo && bHasLogo) return 1;
+              return 0; // Keep original order for sources in the same category
+            });
+
+            return sortedSources.map((source) => {
+              const logoPath = getSourceLogo(source);
+
+              return (
+                <Button
+                  key={source}
+                  variant={selectedSources.includes(source) ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => toggleSource && toggleSource(source)}
+                  className="rounded-full flex items-center gap-2"
+                >
+                  {logoPath && (
+                    <img
+                      src={logoPath}
+                      alt={`${source} logo`}
+                      className="w-4 h-4 object-contain"
+                      onError={(e) => {
+                        // Hide image if it fails to load
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  )}
+                  <span>{source}</span>
+                </Button>
+              );
+            });
+          })()}
         </div>
       </div>
 

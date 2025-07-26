@@ -68,11 +68,11 @@ export default {
 
 		try {
 			// Use the new AI summarization utility function
-			const summary = await summarizeWithDeepSeek(env.DEEPSEEK_API_KEY, articles, 'Sun Tzu');
+			const summary = await summarizeWithDeepSeek(env.DEEPSEEK_API_KEY, articles);
 			const finalReport = `[summary] ${timeWindowIdentifier}\n\n${summary}`;
 
 			// --- Telegram Posting ---
-			console.log(`Sending Sun Tzu summary for ${timeWindowIdentifier} to Telegram...`);
+			console.log(`Sending summary for ${timeWindowIdentifier} to Telegram...`);
 			try {
 				// Get all user telegram IDs from Supabase
 				const { data: users, error: usersError } = await supabase.from('user_preferences').select('telegram_id');
@@ -101,7 +101,7 @@ export default {
 			}
 
 			// --- Twitter Posting ---
-			console.log(`Posting Sun Tzu summary for ${timeWindowIdentifier} to Twitter...`);
+			console.log(`Posting summary for ${timeWindowIdentifier} to Twitter...`);
 			try {
 				await postThread(env, finalReport);
 				console.log('twitter: AI Daily report sent successfully');

@@ -66,8 +66,7 @@ interface DeepSeekResponse {
 
 export async function summarizeWithDeepSeek(
 	apiKey: string,
-	articles: ArticleForSummary[],
-	style?: string // Add optional style parameter
+	articles: ArticleForSummary[]
 ): Promise<string> {
 	try {
 		// Prepare the prompt using the structured data
@@ -83,14 +82,23 @@ export async function summarizeWithDeepSeek(
 		for (const [category, items] of Object.entries(categories)) {
 			articlesForPrompt += `【${category}】\n`;
 			items.forEach((item) => {
-				const coins = item.tags?.coins?.join(', ') || '無';
-				articlesForPrompt += `- ${item.source}: ${item.title} (幣種: ${coins})\n  ${item.url}\n`;
+				articlesForPrompt += `- ${item.source}: ${item.title}\n  ${item.url}\n`;
 			});
 			articlesForPrompt += '\n';
 		}
 
-		// --- Construct Prompt based on Style ---
-		let prompt = '你是專業的 AI 記者 請總結這些新聞與研究文章，並生成一份簡潔的中文摘要報告。';
+		// --- Construct Prompt ---
+		const prompt = `請根據以下 AI 新聞文章列表，產生一份簡潔的中文摘要報告。
+			目標是總結當天的主要新聞亮點，並確保最終報告的總長度嚴格控制在 500 個字元以內。
+			請保留重要的資訊，例如主要事件和來源。
+
+			新聞列表：
+			---
+			${articlesForPrompt}
+			---
+
+			請生成摘要報告：`;
+		console.log('Using default summary prompt.');
 
 		console.log('Sending request to DeepSeek API via utils...');
 		const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
