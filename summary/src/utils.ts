@@ -64,10 +64,7 @@ interface DeepSeekResponse {
 	};
 }
 
-export async function summarizeWithDeepSeek(
-	apiKey: string,
-	articles: ArticleForSummary[]
-): Promise<string> {
+export async function summarizeWithDeepSeek(apiKey: string, articles: ArticleForSummary[]): Promise<string> {
 	try {
 		// Prepare the prompt using the structured data
 		let articlesForPrompt = '';
@@ -89,8 +86,7 @@ export async function summarizeWithDeepSeek(
 
 		// --- Construct Prompt ---
 		const prompt = `請根據以下 AI 新聞文章列表，產生一份簡潔的中文摘要報告。
-			目標是總結當天的主要新聞亮點，並確保最終報告的總長度嚴格控制在 500 個字元以內。
-			請保留重要的資訊，例如主要事件和來源。
+			目標是總結當天的主要新聞亮點。請保留重要的資訊，例如主要事件和來源。
 
 			新聞列表：
 			---

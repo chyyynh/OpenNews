@@ -49,33 +49,36 @@ export default function TelegramLoginButton({
   }, [onAuth]);
 
   return (
-    <div ref={containerRef} className="telegram-login-container">
-      {/* Debug info */}
-      <div style={{ fontSize: '12px', color: '#666', marginBottom: '10px' }}>
-        Debug: Bot={botName}, Domain={typeof window !== 'undefined' ? window.location.origin : 'unknown'}
-      </div>
-      
+    <>
       <Script
-        async
         src="https://telegram.org/js/telegram-widget.js?22"
-        data-telegram-login={botName}
-        data-size={buttonSize}
-        data-radius={cornerRadius.toString()}
-        data-request-access={requestAccess ? "write" : "read"}
-        data-userpic={usePic ? "true" : "false"}
-        data-lang={lang}
-        data-onauth="onTelegramAuth(user)"
+        strategy="lazyOnload"
         onLoad={() => {
-          console.log('✅ Telegram widget loaded successfully');
-          console.log('Bot name:', botName);
-          console.log('Current domain:', window.location.origin);
-          console.log('Callback function exists:', typeof window.onTelegramAuth);
-        }}
-        onError={(e) => {
-          console.error('❌ Failed to load Telegram widget:', e);
+          if (containerRef.current) {
+            // Clear previous widget if any
+            containerRef.current.innerHTML = "";
+
+            // Create the Telegram login button
+            const script = document.createElement("script");
+            script.async = true;
+            script.src = "https://telegram.org/js/telegram-widget.js?22";
+            script.setAttribute("data-telegram-login", botName);
+            script.setAttribute("data-size", buttonSize);
+            script.setAttribute("data-radius", cornerRadius.toString());
+            script.setAttribute(
+              "data-request-access",
+              requestAccess ? "write" : "read"
+            );
+            script.setAttribute("data-userpic", usePic ? "true" : "false");
+            script.setAttribute("data-lang", lang);
+            script.setAttribute("data-onauth", "onTelegramAuth(user)");
+
+            containerRef.current.appendChild(script);
+          }
         }}
       />
-    </div>
+      <div ref={containerRef} className="telegram-login-container"></div>
+    </>
   );
 }
 

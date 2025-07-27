@@ -261,10 +261,37 @@ export default function Home() {
   };
 
   // Handle Telegram login (web version)
-  const handleTelegramAuth = (telegramUser: TelegramUser) => {
-    localStorage.setItem("telegramUser", JSON.stringify(telegramUser));
-    setWebUser(telegramUser);
-    toast.success("登入成功");
+  const handleTelegramAuth = async (telegramUser: TelegramUser) => {
+    try {
+      console.log('Telegram auth data received:', telegramUser);
+      
+      // 發送到 API 進行驗證
+      const response = await fetch('/api/auth/telegram', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(telegramUser),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('Telegram auth failed:', error);
+        toast.error('登入驗證失敗: ' + (error.error || 'Unknown error'));
+        return;
+      }
+
+      const result = await response.json();
+      console.log('Telegram auth successful:', result);
+
+      // 驗證成功後存儲資料
+      localStorage.setItem("telegramUser", JSON.stringify(telegramUser));
+      setWebUser(telegramUser);
+      toast.success("登入成功");
+    } catch (error) {
+      console.error('Telegram auth error:', error);
+      toast.error('登入過程中發生錯誤');
+    }
   };
 
   // Handle logout (web version)
