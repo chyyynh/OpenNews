@@ -3,6 +3,7 @@ export async function sendMessageToTelegram(token: string, chatId: string, messa
 	const body = JSON.stringify({
 		chat_id: chatId,
 		text: message,
+		parse_mode: 'Markdown',
 	});
 
 	try {
@@ -86,14 +87,22 @@ export async function summarizeWithDeepSeek(apiKey: string, articles: ArticleFor
 
 		// --- Construct Prompt ---
 		const prompt = `請根據以下 AI 新聞文章列表，產生一份簡潔的中文摘要報告。
-			目標是總結當天的主要新聞亮點。請保留重要的資訊，例如主要事件和來源。
+			目標是總結每則新聞成一句標題，並依照重要性1-10分打分和排序，並附上連結。
+			請使用 Telegram Markdown 語法格式。
+
+			範例格式：
+			---
+			1. [Meta推出手势控制腕带利用AI解读肌肉信号](https://newslink) (10/10)
+			2. [Grok推出新App连接器提升生产力](https://newslink) (7/10)
+			3. [a16z：AI行业正处于扩张阶段需积极投资](https://newslink) (3/10)
+			---
 
 			新聞列表：
 			---
 			${articlesForPrompt}
 			---
 
-			請生成摘要報告：`;
+			請生成 Telegram Markdown 格式的摘要報告：`;
 		console.log('Using default summary prompt.');
 
 		console.log('Sending request to DeepSeek API via utils...');
