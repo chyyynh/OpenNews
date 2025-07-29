@@ -88,21 +88,25 @@ export async function summarizeWithDeepSeek(apiKey: string, articles: ArticleFor
 		// --- Construct Prompt ---
 		const prompt = `請根據以下 AI 新聞文章列表，產生一份簡潔的中文摘要報告。
 			目標是總結每則新聞成一句標題，並依照重要性1-10分打分和排序，並附上連結。
-			請使用 Telegram Markdown 語法格式。
+			請使用 Telegram Markdown 語法格式，避免使用反引號和三個反引號。
+			
+			標準：
+			- 9-10 分：新產品發佈、重大行業影響或商業模式變革、大型融資 
+			- 7-8 分：技術突破、重要商業合作趣味應用、小規模創新、中型融資
+			- 5-6 分：實用工具或中型融資  
+			- 3-4 分：小規模創新、實用工具、趣味應用  
+			- 1-2 分：評論、邊緣話題或純展示項目
 
 			範例格式：
 			---
-			1. [Meta推出手势控制腕带利用AI解读肌肉信号](https://newslink) (10/10)
-			2. [Grok推出新App连接器提升生产力](https://newslink) (7/10)
-			3. [a16z：AI行业正处于扩张阶段需积极投资](https://newslink) (3/10)
+			1. (新產品)[Meta推出手势控制腕带利用AI解读肌肉信号](https://newslink) (10/10)
+			2. (產品更新)[Grok推出新App连接器提升生产力](https://newslink) (7/10)
+			3. (評論)[a16z：AI行业正处于扩张阶段需积极投资](https://newslink) (3/10)
 			---
-
 			新聞列表：
 			---
 			${articlesForPrompt}
-			---
-
-			請生成 Telegram Markdown 格式的摘要報告：`;
+			---`;
 		console.log('Using default summary prompt.');
 
 		console.log('Sending request to DeepSeek API via utils...');

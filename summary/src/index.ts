@@ -6,6 +6,7 @@ interface Env {
 	SUPABASE_URL: string;
 	SUPABASE_SERVICE_ROLE_KEY: string;
 	TELEGRAM_BOT_TOKEN: string;
+	TELEGRAM_CHANNEL_ID: string;
 	TWITTER_CLIENT_ID: string;
 	TWITTER_CLIENT_SECRET: string;
 	TWITTER_KV: KVNamespace;
@@ -95,6 +96,15 @@ export default {
 						console.error(`Failed to send message to user ${user.telegram_id}:`, singleUserError);
 					}
 				}
+
+				// Send message to channel
+				try {
+					await sendMessageToTelegram(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHANNEL_ID, finalReport);
+					console.log('telegram: AI Daily report sent to channel successfully');
+				} catch (channelError) {
+					console.error('Failed to send message to channel:', channelError);
+				}
+
 				console.log('telegram: AI Daily report sent successfully');
 			} catch (telegramError) {
 				console.error('telegram: Failed to send message:', telegramError);
