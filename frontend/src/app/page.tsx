@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 
@@ -37,6 +38,8 @@ export default function Home() {
   const [articles, setArticles] = useState<ArticleItem[]>([]);
   const [fetchError, setFetchError] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [isAuthLoading, setIsAuthLoading] = useState(false);
 
   // Time filter state
@@ -160,15 +163,16 @@ export default function Home() {
     [selectedTags]
   );
 
-  // Fetch articles when selectedTags, selectedSources, or selectedTimeFilter change
-  useEffect(() => {
-    let isMounted = true;
-    const controller = new AbortController();
+  // Fetch articles function
+  const fetchArticles = useCallback(
+    async (offset = 0, reset = false) => {
+      if (reset) {
+        setIsLoading(true);
+        setHasMore(true);
+      } else {
+        setIsLoadingMore(true);
+      }
 
-    async function fetchArticles() {
-      if (!isMounted) return;
-
-      setIsLoading(true);
       try {
         let query = supabase
           .from("articles")
@@ -191,11 +195,9 @@ export default function Home() {
           query = query.gte("published_date", dateFilter);
         }
 
-        query = query.limit(20);
+        query = query.range(offset, offset + 19); // Load 20 items at a time
 
         const { data, error } = await query;
-
-        if (!isMounted) return;
 
         if (error) {
           console.error("获取文章时出错:", error);
@@ -203,29 +205,122 @@ export default function Home() {
           return;
         }
 
-        setArticles(data as ArticleItem[]);
+        const newArticles = data as ArticleItem[];
+
+        if (reset) {
+          setArticles(newArticles);
+        } else {
+          // Filter out duplicate articles by ID
+          setArticles((prev) => {
+            const existingIds = new Set(prev.map((article) => article.id));
+            const uniqueNewArticles = newArticles.filter(
+              (article) => !existingIds.has(article.id)
+            );
+            return [...prev, ...uniqueNewArticles];
+          });
+        }
+
+        // Check if we have more data
+        setHasMore(newArticles.length === 20);
         setFetchError(null);
       } catch (err) {
-        if (!isMounted) return;
         console.error("fetchArticles 中出错:", err);
+        setFetchError(err);
       } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
+        setIsLoading(false);
+        setIsLoadingMore(false);
       }
-    }
+    },
+    [selectedTags, selectedSources, selectedTimeFilter]
+  );
 
+  // Infinite scroll effect
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+
+    const handleScroll = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        if (
+          !isLoadingMore &&
+          hasMore &&
+          articles.length > 0 &&
+          window.innerHeight + document.documentElement.scrollTop >=
+            document.documentElement.offsetHeight - 1000
+        ) {
+          setIsLoadingMore(true);
+
+          // Build query
+          let query = supabase
+            .from("articles")
+            .select(
+              "id, title, url, published_date, tags, keywords, summary, source"
+            )
+            .order("published_date", { ascending: false });
+
+          if (selectedTags.length > 0) {
+            query = query.overlaps("tags", selectedTags);
+          }
+
+          if (selectedSources.length > 0) {
+            query = query.in("source", selectedSources);
+          }
+
+          const dateFilter = getDateFilter(selectedTimeFilter);
+          if (dateFilter) {
+            query = query.gte("published_date", dateFilter);
+          }
+
+          query = query.range(articles.length, articles.length + 19);
+
+          query.then(({ data, error }) => {
+            if (error) {
+              console.error("加載更多文章時出錯:", error);
+              setFetchError(error);
+            } else {
+              const newArticles = data as ArticleItem[];
+              // Filter out duplicate articles by ID
+              setArticles((prev) => {
+                const existingIds = new Set(prev.map((article) => article.id));
+                const uniqueNewArticles = newArticles.filter(
+                  (article) => !existingIds.has(article.id)
+                );
+                return [...prev, ...uniqueNewArticles];
+              });
+              setHasMore(newArticles.length === 20);
+              setFetchError(null);
+            }
+            setIsLoadingMore(false);
+          });
+        }
+      }, 300);
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      clearTimeout(timeoutId);
+    };
+  }, [
+    isLoadingMore,
+    hasMore,
+    articles.length,
+    selectedTags,
+    selectedSources,
+    selectedTimeFilter,
+  ]);
+
+  // Fetch articles when selectedTags, selectedSources, or selectedTimeFilter change
+  useEffect(() => {
     // Add a small delay to avoid rapid consecutive requests
     const timeoutId = setTimeout(() => {
-      fetchArticles();
+      fetchArticles(0, true);
     }, 100);
 
     return () => {
-      isMounted = false;
-      controller.abort();
       clearTimeout(timeoutId);
     };
-  }, [selectedTags, selectedSources, selectedTimeFilter]);
+  }, [fetchArticles]);
 
   // Handle saving prompt with toast notifications
   const handleSavePromptWithToast = async () => {
@@ -263,34 +358,34 @@ export default function Home() {
   // Handle Telegram login (web version)
   const handleTelegramAuth = async (telegramUser: TelegramUser) => {
     try {
-      console.log('Telegram auth data received:', telegramUser);
-      
+      console.log("Telegram auth data received:", telegramUser);
+
       // 發送到 API 進行驗證
-      const response = await fetch('/api/auth/telegram', {
-        method: 'POST',
+      const response = await fetch("/api/auth/telegram", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(telegramUser),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        console.error('Telegram auth failed:', error);
-        toast.error('登入驗證失敗: ' + (error.error || 'Unknown error'));
+        console.error("Telegram auth failed:", error);
+        toast.error("登入驗證失敗: " + (error.error || "Unknown error"));
         return;
       }
 
       const result = await response.json();
-      console.log('Telegram auth successful:', result);
+      console.log("Telegram auth successful:", result);
 
       // 驗證成功後存儲資料
       localStorage.setItem("telegramUser", JSON.stringify(telegramUser));
       setWebUser(telegramUser);
       toast.success("登入成功");
     } catch (error) {
-      console.error('Telegram auth error:', error);
-      toast.error('登入過程中發生錯誤');
+      console.error("Telegram auth error:", error);
+      toast.error("登入過程中發生錯誤");
     }
   };
 
@@ -314,7 +409,7 @@ export default function Home() {
       <header className="mb-4 flex justify-between items-start">
         <div>
           <h1 className="text-3xl font-bold text-center sm:text-left">
-            OpenNews Latest{" "}
+            OpenNews Demo: AI News/Content Collection
           </h1>
           <h3 className="mb-2 flex justify-between items-center">
             {selectedTags.length > 0 ? `${selectedTags.join(", ")}` : ""}
@@ -396,44 +491,87 @@ export default function Home() {
           {/* Separator */}
           <div className="w-px h-6 bg-gray-300 mx-2"></div>
 
-          {/* Sources Filter */}
+          {/* Sources Filter by Category */}
           {(() => {
             // Helper function to get logo path for source
             const getSourceLogo = (source: string): string | null => {
               const logoMap: Record<string, string> = {
-                "OpenAI": "/logo/openai.svg",
-                "Google Deepmind": "/logo/deepmind-color.svg", 
-                "Anthropic": "/logo/anthropic.svg",
+                OpenAI: "/logo/openai.svg",
+                "Google Deepmind": "/logo/deepmind-color.svg",
+                Anthropic: "/logo/anthropic.svg",
+                CNBC: "/logo/cnbc.png",
+                Techcrunch: "/logo/techcrunch.png",
+                "arXiv cs.LG": "/logo/arxiv.png",
+                "arXiv cs.AI": "/logo/arxiv.png",
+                "Hacker News AI": "/logo/hackernews.png",
+                "Hacker News Show HN": "/logo/hackernews.png",
+                "Product Hunt - AI": "/logo/producthunt.jpeg",
+                "Browser Company": "/logo/dia.png",
+                "Perplexity": "/logo/perplexity.png",
                 // Add normalized variations
-                "openai": "/logo/openai.svg",
+                openai: "/logo/openai.svg",
                 "google deepmind": "/logo/deepmind-color.svg",
-                "anthropic": "/logo/anthropic.svg",
+                anthropic: "/logo/anthropic.svg",
+                cnbc: "/logo/cnbc.png",
+                techcrunch: "/logo/techcrunch.png",
+                "arxiv cs.lg": "/logo/arxiv.png",
+                "arxiv cs.ai": "/logo/arxiv.png",
+                "hacker news ai": "/logo/hackernews.png",
+                "hacker news show hn": "/logo/hackernews.png",
+                "product hunt - ai": "/logo/producthunt.jpeg",
+                "browser company": "/logo/dia.png",
+                "perplexity": "/logo/perplexity.png",
               };
-              
+
               // Try exact match first, then lowercase match
               return logoMap[source] || logoMap[source.toLowerCase()] || null;
             };
 
-            // Sort sources: sources with logos first, then others
-            const sortedSources = [...sources].sort((a, b) => {
-              const aHasLogo = !!getSourceLogo(a);
-              const bHasLogo = !!getSourceLogo(b);
-              
-              if (aHasLogo && !bHasLogo) return -1;
-              if (!aHasLogo && bHasLogo) return 1;
-              return 0; // Keep original order for sources in the same category
+            // Categorize sources
+            const sourceCategories = {
+              "AI Firm": ["OpenAI", "Google Deepmind", "Anthropic"],
+              News: ["CNBC", "Techcrunch"],
+              Papers: ["arXiv cs.LG", "arXiv cs.AI"],
+              Community: ["Hacker News AI", "Hacker News Show HN", "Product Hunt - AI"],
+              Application: ["Browser Company", "Perplexity"],
+            };
+
+            // Group sources by category
+            const categorizedSources: { [key: string]: string[] } = {};
+            const uncategorizedSources: string[] = [];
+
+            sources.forEach((source) => {
+              let categorized = false;
+              for (const [category, categoryItems] of Object.entries(
+                sourceCategories
+              )) {
+                if (categoryItems.includes(source)) {
+                  if (!categorizedSources[category]) {
+                    categorizedSources[category] = [];
+                  }
+                  categorizedSources[category].push(source);
+                  categorized = true;
+                  break;
+                }
+              }
+              if (!categorized) {
+                uncategorizedSources.push(source);
+              }
             });
 
-            return sortedSources.map((source) => {
-              const logoPath = getSourceLogo(source);
+            // Add uncategorized sources if any
+            if (uncategorizedSources.length > 0) {
+              categorizedSources["Others"] = uncategorizedSources;
+            }
 
+            const renderSourceItem = (source: string) => {
+              const logoPath = getSourceLogo(source);
               return (
-                <Button
+                <DropdownMenuCheckboxItem
                   key={source}
-                  variant={selectedSources.includes(source) ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => toggleSource && toggleSource(source)}
-                  className="rounded-full flex items-center gap-2"
+                  checked={selectedSources.includes(source)}
+                  onCheckedChange={() => toggleSource && toggleSource(source)}
+                  className="flex items-center gap-2"
                 >
                   {logoPath && (
                     <img
@@ -442,14 +580,43 @@ export default function Home() {
                       className="w-4 h-4 object-contain"
                       onError={(e) => {
                         // Hide image if it fails to load
-                        (e.target as HTMLImageElement).style.display = 'none';
+                        (e.target as HTMLImageElement).style.display = "none";
                       }}
                     />
                   )}
                   <span>{source}</span>
-                </Button>
+                </DropdownMenuCheckboxItem>
               );
-            });
+            };
+
+            return Object.entries(categorizedSources).map(
+              ([category, categoryItems]) => {
+                const selectedInCategory = categoryItems.filter((item) =>
+                  selectedSources.includes(item)
+                );
+
+                return (
+                  <DropdownMenu key={category}>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="flex items-center gap-2"
+                      >
+                        {selectedInCategory.length === 0
+                          ? category
+                          : selectedInCategory.length === 1
+                          ? selectedInCategory[0]
+                          : `${category} (${selectedInCategory.length})`}
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-48">
+                      {categoryItems.map(renderSourceItem)}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                );
+              }
+            );
           })()}
         </div>
       </div>
@@ -474,11 +641,6 @@ export default function Home() {
           toggleTag={toggleTag}
           isSaving={isSavingTags}
           saveUserPreferences={handleSavePreferencesWithToast}
-          sources={sources}
-          selectedSources={selectedSources}
-          toggleSource={toggleSource}
-          isSavingSources={isSavingSources}
-          saveUserSourcePreferences={handleSaveSourcePreferencesWithToast}
         />
       </div>
 
@@ -518,7 +680,6 @@ export default function Home() {
                   )}
                   <div className="text-sm text-gray-500 mt-2">
                     <span>
-                      發布日期:{" "}
                       {new Date(item.published_date).toLocaleDateString()}
                     </span>
                     {item.tags && item.tags.length > 0 && (
@@ -540,6 +701,23 @@ export default function Home() {
                   />
                 </li>
               ))}
+
+              {/* Loading more indicator */}
+              {isLoadingMore && (
+                <li className="flex justify-center py-4">
+                  <div className="flex items-center gap-2">
+                    <Loader className="h-4 w-4 animate-spin" />
+                    <span>載入更多文章...</span>
+                  </div>
+                </li>
+              )}
+
+              {/* No more data indicator */}
+              {!hasMore && articles.length > 0 && (
+                <li className="flex justify-center py-4">
+                  <span className="text-gray-500">已載入所有文章</span>
+                </li>
+              )}
             </ul>
           ) : (
             // Show message if no articles found and no error
@@ -579,11 +757,6 @@ export default function Home() {
             toggleTag={toggleTag}
             isSaving={isSavingTags}
             saveUserPreferences={handleSavePreferencesWithToast}
-            sources={sources}
-            selectedSources={selectedSources}
-            toggleSource={toggleSource}
-            isSavingSources={isSavingSources}
-            saveUserSourcePreferences={handleSaveSourcePreferencesWithToast}
           />
         </aside>
       </div>

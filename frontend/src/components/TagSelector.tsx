@@ -12,52 +12,6 @@ interface TagSelectorProps {
   toggleTag: (tag: string) => void;
   isSaving: boolean;
   saveUserPreferences: () => Promise<{ success: boolean; message: string }>;
-  // New props for sources
-  sources?: string[];
-  selectedSources?: string[];
-  toggleSource?: (source: string) => void;
-  isSavingSources?: boolean;
-  saveUserSourcePreferences?: () => Promise<{
-    success: boolean;
-    message: string;
-  }>;
-}
-
-interface SourceButtonProps {
-  source: string;
-  isSelected: boolean;
-  logoPath: string | null;
-  onClick: () => void;
-}
-
-function SourceButton({ source, isSelected, logoPath, onClick }: SourceButtonProps) {
-  const [imageError, setImageError] = useState(false);
-
-  return (
-    <Button
-      variant="outline"
-      className={`px-3 py-2 text-base border flex items-center gap-2 ${
-        isSelected
-          ? "bg-black text-white border-transparent"
-          : "text-[var(--tg-theme-button-color)] border-[var(--tg-theme-button-color)]"
-      }`}
-      onClick={onClick}
-    >
-      {logoPath && !imageError ? (
-        <>
-          <img
-            src={logoPath}
-            alt={`${source} logo`}
-            className="w-5 h-5 object-contain"
-            onError={() => setImageError(true)}
-          />
-          <span className="text-sm">{source}</span>
-        </>
-      ) : (
-        source
-      )}
-    </Button>
-  );
 }
 
 export function TagSelector({
@@ -67,56 +21,19 @@ export function TagSelector({
   toggleTag,
   isSaving,
   saveUserPreferences,
-  sources = [],
-  selectedSources = [],
-  toggleSource,
-  isSavingSources = false,
-  saveUserSourcePreferences,
 }: TagSelectorProps) {
-  // Debug logs
-  console.log("TagSelector sources length:", sources.length);
-  console.log("TagSelector sources array:", sources);
-  console.log("TagSelector selectedSources:", selectedSources);
-  console.log("TagSelector toggleSource exists:", !!toggleSource);
-  console.log(
-    "TagSelector saveUserSourcePreferences exists:",
-    !!saveUserSourcePreferences
-  );
-
   // 把選中的 tag 放前面，未選的放後面
   const orderedTags = [
     ...selectedTags,
     ...tags.filter((tag) => !selectedTags.includes(tag)),
   ];
 
-  // 把選中的 source 放前面，未選的放後面
-  const orderedSources = [
-    ...selectedSources,
-    ...sources.filter((source) => !selectedSources.includes(source)),
-  ];
-
-  // Helper function to get logo path for source
-  const getSourceLogo = (source: string): string | null => {
-    const logoMap: Record<string, string> = {
-      "OpenAI": "/logo/openai.svg",
-      "Google Deepmind": "/logo/deepmind-color.svg",
-      "Anthropic": "/logo/anthropic.svg",
-      // Add normalized variations
-      "openai": "/logo/openai.svg",
-      "google deepmind": "/logo/deepmind-color.svg",
-      "anthropic": "/logo/anthropic.svg",
-    };
-    
-    // Try exact match first, then lowercase match
-    return logoMap[source] || logoMap[source.toLowerCase()] || null;
-  };
-
   return (
     <div className="space-y-6">
       {/* Tags Section */}
       <div className="rounded-lg p-4">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">選擇標籤</h2>
+          <h2 className="text-lg font-semibold">Tag Select</h2>
           <Button
             onClick={saveUserPreferences}
             disabled={isSaving || !user}
@@ -133,7 +50,7 @@ export function TagSelector({
                 儲存中...
               </>
             ) : (
-              "儲存標籤偏好"
+              "Save Tags"
             )}
           </Button>
         </div>
@@ -142,11 +59,12 @@ export function TagSelector({
           {orderedTags.map((tag) => (
             <Button
               key={tag}
-              variant="outline"
-              className={`px-2 text-base border ${
+              variant={selectedTags.includes(tag) ? "default" : "outline"}
+              size="sm"
+              className={`transition-all duration-200 ${
                 selectedTags.includes(tag)
-                  ? "bg-black text-white border-transparent"
-                  : "text-[var(--tg-theme-button-color)] border-[var(--tg-theme-button-color)]"
+                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                  : "hover:bg-accent hover:text-accent-foreground"
               }`}
               onClick={() => toggleTag(tag)}
             >
@@ -158,49 +76,6 @@ export function TagSelector({
           )}
         </div>
       </div>
-
-      {/* Sources Section */}
-      {sources.length > 0 && toggleSource && saveUserSourcePreferences && (
-        <div className="rounded-lg p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold">選擇新聞來源</h2>
-            <Button
-              onClick={saveUserSourcePreferences}
-              disabled={isSavingSources || !user}
-              size="sm"
-              className="tg-button"
-              style={{
-                backgroundColor: "var(--tg-theme-button-color)",
-                color: "var(--tg-theme-button-text-color)",
-              }}
-            >
-              {isSavingSources ? (
-                <>
-                  <Loader className="mr-2 h-4 w-4 animate-spin" />
-                  儲存中...
-                </>
-              ) : (
-                "儲存來源偏好"
-              )}
-            </Button>
-          </div>
-
-          <div className="flex flex-wrap gap-2 max-h-[300px] overflow-y-auto">
-            {orderedSources.map((source) => (
-              <SourceButton
-                key={source}
-                source={source}
-                isSelected={selectedSources.includes(source)}
-                logoPath={getSourceLogo(source)}
-                onClick={() => toggleSource(source)}
-              />
-            ))}
-            {sources.length === 0 && (
-              <p className="text-sm text-gray-500">未找到新聞來源。</p>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

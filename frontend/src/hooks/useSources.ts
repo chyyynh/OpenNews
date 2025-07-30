@@ -40,13 +40,17 @@ export function useSources(user: TelegramUser | null) {
   useEffect(() => {
     const hardcodedSources = [
       "OpenAI",
-      "Hacker News Show HN",
+      "Anthropic",
+      "Google Deepmind",
       "CNBC",
+      "Techcrunch",
       "arXiv cs.LG",
       "arXiv cs.AI",
-      "Google Deepmind",
       "Hacker News AI",
-      "Techcrunch",
+      "Hacker News Show HN",
+      "Product Hunt - AI",
+      "Browser Company",
+      "Perplexity",
     ];
 
     console.log("Setting hardcoded sources:", hardcodedSources);
