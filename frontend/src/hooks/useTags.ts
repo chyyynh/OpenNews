@@ -56,6 +56,7 @@ export function useTags() {
 
     async function fetchUserSelectedTags() {
       try {
+        if (!session?.user?.id) return;
         const res = await fetch(`/api/user/tags?user_id=${session.user.id}`);
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
 

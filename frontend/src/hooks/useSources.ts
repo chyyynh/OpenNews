@@ -61,6 +61,7 @@ export function useSources() {
 
     async function fetchUserSelectedSources() {
       try {
+        if (!session?.user?.id) return;
         const res = await fetch(`/api/user/sources?user_id=${session.user.id}`);
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
 

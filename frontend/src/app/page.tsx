@@ -4,23 +4,18 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
-import { Loader, LogOut, ChevronDown } from "lucide-react";
+import { Loader, ChevronDown } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-
 import { supabase } from "@/lib/supabase";
 import type { ArticleItem, AppUser } from "@/types";
-import type { User } from "@/lib/auth";
-
 import { useTags } from "@/hooks/useTags";
 import { useSources } from "@/hooks/useSources";
 import { useCustomPrompt } from "@/hooks/useCustomPrompt";

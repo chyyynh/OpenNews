@@ -18,6 +18,7 @@ export function useCustomPrompt() {
 
     async function fetchUserCustomPrompt() {
       try {
+        if (!session?.user?.id) return;
         const res = await fetch(
           `/api/user/customPrompt?user_id=${session.user.id}`
         );

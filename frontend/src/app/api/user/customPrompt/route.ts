@@ -1,9 +1,7 @@
 // api/customPrompt/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/prisma";
 
 // GET - 讀取 custom_prompt
 export async function GET(req: NextRequest) {
