@@ -3,10 +3,10 @@
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Loader, Check } from "lucide-react";
-import type { TelegramUser } from "@/types";
+import type { AppUser } from "@/types";
 
 interface PromptEditorProps {
-  user: TelegramUser | null;
+  user: AppUser | null;
   tempCustomPrompt: string;
   setTempCustomPrompt: (prompt: string) => void;
   isSaving: boolean;

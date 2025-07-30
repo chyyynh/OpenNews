@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button"; // Assuming you have a Button component
 
 interface SendToTwitterButtonProps {
@@ -18,6 +19,7 @@ export function SendToTwitterButton({
 }: SendToTwitterButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   const handleSendToTwitter = async () => {
     setIsLoading(true);
@@ -39,6 +41,13 @@ export function SendToTwitterButton({
 
       if (!response.ok) {
         const errorData = await response.json();
+        
+        // Check if authentication is required
+        if (response.status === 401 && errorData.requiresAuth) {
+          router.push("/login");
+          return;
+        }
+        
         throw new Error(errorData.error || "Failed to generate comment");
       }
 

@@ -1,25 +1,30 @@
 // app/api/user/tags/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase"; // 確保這個支援 Edge，如果你是用 RSC
+import { PrismaClient } from "@prisma/client";
+import { supabase } from "@/lib/supabase";
+
+const prisma = new PrismaClient();
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const telegramId = searchParams.get("telegram_id");
+  const user_id = searchParams.get("user_id");
 
-  if (telegramId) {
+  if (user_id) {
     // 使用者登入情況，回傳 selected_tags
-    const { data, error } = await supabase
-      .from("user_preferences")
-      .select("selected_tags")
-      .eq("telegram_id", telegramId)
-      .single();
+    try {
+      const userPreferences = await prisma.userPreferences.findUnique({
+        where: { user_id },
+        select: { selected_tags: true }
+      });
 
-    if (error && error.code !== "PGRST116") {
+      return NextResponse.json({ 
+        selected_tags: userPreferences?.selected_tags || [] 
+      });
+    } catch (error) {
+      console.error("Error fetching user tags:", error);
       return NextResponse.json({ error: "讀取標籤失敗" }, { status: 500 });
     }
-
-    return NextResponse.json({ selected_tags: data?.selected_tags ?? [] });
   } else {
     // 未登入情況，回傳所有文章 tags
     const { data, error } = await supabase
@@ -43,27 +48,32 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { telegram_id, selected_tags } = body;
+  const { user_id, selected_tags } = body;
 
-  if (!telegram_id || !Array.isArray(selected_tags)) {
+  if (!user_id || !Array.isArray(selected_tags)) {
     return NextResponse.json({ error: "資料格式錯誤" }, { status: 400 });
   }
 
-  const { error } = await supabase.from("user_preferences").upsert(
-    {
-      telegram_id,
-      selected_tags,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "telegram_id" }
-  );
+  try {
+    await prisma.userPreferences.upsert({
+      where: { user_id },
+      update: {
+        selected_tags,
+        updated_at: new Date(),
+      },
+      create: {
+        user_id,
+        selected_tags,
+        updated_at: new Date(),
+      },
+    });
 
-  if (error) {
+    return NextResponse.json({
+      success: true,
+      message: "標籤偏好已保存",
+    });
+  } catch (error) {
+    console.error("Error saving user tags:", error);
     return NextResponse.json({ error: "儲存失敗" }, { status: 500 });
   }
-
-  return NextResponse.json({
-    success: true,
-    message: "標籤偏好已保存",
-  });
 }

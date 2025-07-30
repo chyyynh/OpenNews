@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
-import type { TelegramUser } from "@/types";
+import { useSession } from "@/lib/auth-client";
 
-export function useTags(user: TelegramUser | null) {
+export function useTags() {
+  const { data: session } = useSession();
   const searchParams = useSearchParams();
   const [tags, setTags] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -51,12 +52,11 @@ export function useTags(user: TelegramUser | null) {
 
   // Fetch user preferences from API
   useEffect(() => {
-    if (!user) return;
+    if (!session?.user?.id) return;
 
     async function fetchUserSelectedTags() {
       try {
-        if (!user) return;
-        const res = await fetch(`/api/user/tags?telegram_id=${user.id}`);
+        const res = await fetch(`/api/user/tags?user_id=${session.user.id}`);
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
 
         const data: { selected_tags?: string[] } = await res.json();
@@ -70,7 +70,7 @@ export function useTags(user: TelegramUser | null) {
     }
 
     fetchUserSelectedTags();
-  }, [user]);
+  }, [session?.user?.id]);
 
   // Helper function to toggle tags
   const toggleTag = (tag: string) => {
@@ -81,7 +81,7 @@ export function useTags(user: TelegramUser | null) {
 
   // Save user tag preferences via API
   const saveUserPreferences = async () => {
-    if (!user) {
+    if (!session?.user?.id) {
       return { success: false, message: "無法獲取用戶信息" };
     }
 
@@ -94,7 +94,7 @@ export function useTags(user: TelegramUser | null) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          telegram_id: user.id,
+          user_id: session.user.id,
           selected_tags: selectedTags,
         }),
       });

@@ -18,20 +18,17 @@ import {
 import { Button } from "@/components/ui/button";
 
 import { supabase } from "@/lib/supabase";
-import type { ArticleItem, TelegramUser } from "@/types";
+import type { ArticleItem, AppUser } from "@/types";
+import type { User } from "@/lib/auth";
 
-import { useTelegramUser } from "@/hooks/useTelegramUser";
 import { useTags } from "@/hooks/useTags";
 import { useSources } from "@/hooks/useSources";
 import { useCustomPrompt } from "@/hooks/useCustomPrompt";
-import { UserDisplay } from "@/components/UserDisplay";
 import { PromptEditor } from "@/components/PromptEditor";
 import { TagSelector } from "@/components/TagSelector";
-import TelegramLoginButton from "@/components/TelegramLoginButton";
+import { UserMenu } from "@/components/UserMenu";
 import { SendToTwitterButton } from "@/components/SendToTwitterButton";
-
-// Telegram bot name - replace with your bot name
-const TELEGRAM_BOT_NAME = "openews_bot";
+import { useSession } from "@/lib/auth-client";
 
 export default function Home() {
   // Article state
@@ -40,42 +37,22 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
-  const [isAuthLoading, setIsAuthLoading] = useState(false);
 
   // Time filter state
   const [selectedTimeFilter, setSelectedTimeFilter] = useState<string>("7day");
 
-  // For web version (not Mini App), we need to handle user state manually
-  const [webUser, setWebUser] = useState<TelegramUser | null>(null);
+  // Use Better Auth session
+  const { data: session } = useSession();
 
-  // Get user from localStorage on mount (for web version)
-  useEffect(() => {
-    const savedUser = localStorage.getItem("telegramUser");
-    if (savedUser) {
-      try {
-        const parsedUser = JSON.parse(savedUser);
-        // Check if auth is expired (24 hours)
-        const authDate = parsedUser.auth_date * 1000;
-        const now = Date.now();
-        const oneDay = 24 * 60 * 60 * 1000;
-
-        if (now - authDate < oneDay) {
-          setWebUser(parsedUser);
-        } else {
-          localStorage.removeItem("telegramUser");
-        }
-      } catch (e) {
-        console.error("解析保存的用户信息时出错:", e);
-        localStorage.removeItem("telegramUser");
+  // Convert Better Auth user to AppUser format
+  const user: AppUser | null = session?.user
+    ? {
+        id: session.user.id,
+        name: session.user.name,
+        email: session.user.email,
+        image: session.user.image || undefined,
       }
-    }
-  }, []);
-
-  // Use the Telegram user hook (will return null on web version)
-  const { user: telegramUser } = useTelegramUser();
-
-  // Combine both user sources - prefer Telegram WebApp user if available
-  const user = telegramUser || webUser;
+    : null;
 
   // Use custom hooks
   const {
@@ -85,7 +62,7 @@ export default function Home() {
     isSaving: isSavingTags,
     toggleTag,
     saveUserPreferences,
-  } = useTags(user);
+  } = useTags();
 
   const {
     sources,
@@ -94,7 +71,7 @@ export default function Home() {
     isSaving: isSavingSources,
     toggleSource,
     saveUserSourcePreferences,
-  } = useSources(user);
+  } = useSources();
 
   const {
     customPrompt,
@@ -103,7 +80,7 @@ export default function Home() {
     isSaving: isSavingPrompt,
     saveSuccess,
     handleSavePrompt,
-  } = useCustomPrompt(user);
+  } = useCustomPrompt();
 
   const searchParams = useSearchParams();
 
@@ -355,55 +332,6 @@ export default function Home() {
     return result;
   };
 
-  // Handle Telegram login (web version)
-  const handleTelegramAuth = async (telegramUser: TelegramUser) => {
-    try {
-      console.log("Telegram auth data received:", telegramUser);
-
-      // 發送到 API 進行驗證
-      const response = await fetch("/api/auth/telegram", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(telegramUser),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        console.error("Telegram auth failed:", error);
-        toast.error("登入驗證失敗: " + (error.error || "Unknown error"));
-        return;
-      }
-
-      const result = await response.json();
-      console.log("Telegram auth successful:", result);
-
-      // 驗證成功後存儲資料
-      localStorage.setItem("telegramUser", JSON.stringify(telegramUser));
-      setWebUser(telegramUser);
-      toast.success("登入成功");
-    } catch (error) {
-      console.error("Telegram auth error:", error);
-      toast.error("登入過程中發生錯誤");
-    }
-  };
-
-  // Handle logout (web version)
-  const handleLogout = () => {
-    setIsAuthLoading(true);
-    try {
-      localStorage.removeItem("telegramUser");
-      setWebUser(null);
-      toast.success("已成功登出");
-    } catch (error) {
-      console.error("登出错误:", error);
-      toast.error("登出失败，请重试");
-    } finally {
-      setIsAuthLoading(false);
-    }
-  };
-
   return (
     <div className="container mx-auto p-4 sm:p-8 font-[family-name:var(--font-geist-sans)]">
       <header className="mb-4 flex justify-between items-start">
@@ -416,44 +344,19 @@ export default function Home() {
           </h3>
         </div>
 
-        {/* Telegram login button/user menu (web version) */}
-        {!telegramUser &&
-          (user ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="flex items-center gap-2">
-                  <UserDisplay user={user} />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem className="text-sm text-gray-500" disabled>
-                  Telegram ID: {user.id}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={handleLogout}
-                  disabled={isAuthLoading}
-                >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  登出
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <div className="telegram-login-container">
-              <TelegramLoginButton
-                botName={TELEGRAM_BOT_NAME}
-                onAuth={handleTelegramAuth}
-                buttonSize="large"
-                cornerRadius={8}
-                usePic={true}
-                lang="zh-hant"
-              />
-            </div>
-          ))}
-
-        {/* If using Telegram WebApp, just show the user */}
-        {telegramUser && <UserDisplay user={telegramUser} />}
+        {/* Authentication */}
+        {session?.user ? (
+          <UserMenu user={session.user} />
+        ) : (
+          <div className="flex gap-2">
+            <Link href="/login">
+              <Button variant="outline">登入</Button>
+            </Link>
+            <Link href="/signup">
+              <Button>註冊</Button>
+            </Link>
+          </div>
+        )}
       </header>
 
       {/* Time and Sources Filter - appears above news */}
@@ -507,7 +410,7 @@ export default function Home() {
                 "Hacker News Show HN": "/logo/hackernews.png",
                 "Product Hunt - AI": "/logo/producthunt.jpeg",
                 "Browser Company": "/logo/dia.png",
-                "Perplexity": "/logo/perplexity.png",
+                Perplexity: "/logo/perplexity.png",
                 // Add normalized variations
                 openai: "/logo/openai.svg",
                 "google deepmind": "/logo/deepmind-color.svg",
@@ -520,7 +423,7 @@ export default function Home() {
                 "hacker news show hn": "/logo/hackernews.png",
                 "product hunt - ai": "/logo/producthunt.jpeg",
                 "browser company": "/logo/dia.png",
-                "perplexity": "/logo/perplexity.png",
+                perplexity: "/logo/perplexity.png",
               };
 
               // Try exact match first, then lowercase match
@@ -532,7 +435,11 @@ export default function Home() {
               "AI Firm": ["OpenAI", "Google Deepmind", "Anthropic"],
               News: ["CNBC", "Techcrunch"],
               Papers: ["arXiv cs.LG", "arXiv cs.AI"],
-              Community: ["Hacker News AI", "Hacker News Show HN", "Product Hunt - AI"],
+              Community: [
+                "Hacker News AI",
+                "Hacker News Show HN",
+                "Product Hunt - AI",
+              ],
               Application: ["Browser Company", "Perplexity"],
             };
 

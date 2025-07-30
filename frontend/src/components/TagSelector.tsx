@@ -3,10 +3,10 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader } from "lucide-react";
-import type { TelegramUser } from "@/types";
+import type { AppUser } from "@/types";
 
 interface TagSelectorProps {
-  user: TelegramUser | null;
+  user: AppUser | null;
   tags: string[];
   selectedTags: string[];
   toggleTag: (tag: string) => void;

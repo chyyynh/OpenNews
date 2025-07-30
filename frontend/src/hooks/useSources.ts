@@ -2,15 +2,15 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
-import type { TelegramUser } from "@/types";
+import { useSession } from "@/lib/auth-client";
 
-export function useSources(user: TelegramUser | null) {
-  console.log("useSources hook called with user:", user?.id);
+export function useSources() {
+  const { data: session } = useSession();
+  console.log("useSources hook called with session:", session?.user?.id);
 
   const searchParams = useSearchParams();
   const [sources, setSources] = useState<string[]>([
     "OpenAI",
-    "BWENEWS",
     "CNBC",
     "arXiv cs.LG",
     "arXiv cs.AI",
@@ -48,9 +48,6 @@ export function useSources(user: TelegramUser | null) {
       "arXiv cs.AI",
       "Hacker News AI",
       "Hacker News Show HN",
-      "Product Hunt - AI",
-      "Browser Company",
-      "Perplexity",
     ];
 
     console.log("Setting hardcoded sources:", hardcodedSources);
@@ -60,12 +57,11 @@ export function useSources(user: TelegramUser | null) {
 
   // Fetch user preferences from API
   useEffect(() => {
-    if (!user) return;
+    if (!session?.user?.id) return;
 
     async function fetchUserSelectedSources() {
       try {
-        if (!user) return;
-        const res = await fetch(`/api/user/sources?telegram_id=${user.id}`);
+        const res = await fetch(`/api/user/sources?user_id=${session.user.id}`);
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
 
         const data: { selected_sources?: string[] } = await res.json();
@@ -79,7 +75,7 @@ export function useSources(user: TelegramUser | null) {
     }
 
     fetchUserSelectedSources();
-  }, [user]);
+  }, [session?.user?.id]);
 
   // Helper function to toggle sources
   const toggleSource = (source: string) => {
@@ -92,7 +88,7 @@ export function useSources(user: TelegramUser | null) {
 
   // Save user source preferences via API
   const saveUserSourcePreferences = async () => {
-    if (!user) {
+    if (!session?.user?.id) {
       return { success: false, message: "無法獲取用戶信息" };
     }
 
@@ -105,7 +101,7 @@ export function useSources(user: TelegramUser | null) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          telegram_id: user.id,
+          user_id: session.user.id,
           selected_sources: selectedSources,
         }),
       });

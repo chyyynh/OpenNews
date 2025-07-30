@@ -1,0 +1,153 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model RssList {
+  id         BigInt   @id @default(autoincrement())
+  name       String
+  url        String?
+  scraped_at DateTime @default(dbgenerated("(now() AT TIME ZONE 'utc'::text)")) @db.Timestamp(6)
+  RSSLink    String?
+  type       String   @default("rss")
+
+  @@map("RssList")
+}
+
+model Articles {
+  id             String   @id(map: "article_pkey") @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  url            String
+  title          String
+  source         String
+  published_date DateTime @db.Timestamp(6)
+  scraped_date   DateTime @db.Timestamp(6)
+  keywords       String[]
+  tags           String[]
+  summary        String?
+  source_type    String   @default("rss")
+  content        String?
+  tokens         String[]
+
+  @@map("articles")
+}
+
+model DtnewsTweets {
+  id                 BigInt    @id @default(autoincrement())
+  tweet_id           String    @unique @db.VarChar(50)
+  text               String?
+  created_at         DateTime? @db.Timestamptz(6)
+  scraped_at         DateTime? @default(now()) @db.Timestamptz(6)
+  author_id          String?   @db.VarChar(50)
+  author_username    String?   @db.VarChar(100)
+  author_name        String?   @db.VarChar(255)
+  author_verified    Boolean?  @default(false)
+  view_count         Int?      @default(0)
+  like_count         Int?      @default(0)
+  retweet_count      Int?      @default(0)
+  reply_count        Int?      @default(0)
+  quote_count        Int?      @default(0)
+  tweet_url          String?   @db.VarChar(500)
+  media_urls         String[]
+  list_type          String?   @db.VarChar(50)
+  list_id            String?   @db.VarChar(50)
+  hashtags           String[]
+  mentions           String[]
+  urls               String[]
+  lang               String?   @db.VarChar(10)
+  possibly_sensitive Boolean?  @default(false)
+  source             String?   @db.VarChar(255)
+
+  @@unique([tweet_id, list_id], map: "unique_tweet_list")
+  @@index([author_username], map: "idx_dtnews_tweets_author_username")
+  @@index([created_at], map: "idx_dtnews_tweets_created_at")
+  @@index([list_type], map: "idx_dtnews_tweets_list_type")
+  @@index([scraped_at], map: "idx_dtnews_tweets_scraped_at")
+  @@index([view_count], map: "idx_dtnews_tweets_view_count")
+  @@map("dtnews_tweets")
+}
+
+model UserPreferences {
+  id               Int       @id @default(autoincrement())
+  user_id          String?   @unique  // foreign key to User table (optional for migration)
+  telegram_id      BigInt?   // 保留給 Telegram 登入用戶
+  chat_id          BigInt?
+  selected_tags    String[]  @default([])
+  selected_sources String[]  @default([])
+  custom_prompt    String?
+  updated_at       DateTime? @default(now()) @db.Timestamptz(6)
+  
+  // Foreign key relationship (optional)
+  user User? @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+model prompt {
+  id         BigInt   @id @default(autoincrement())
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  prompt     String?
+}
+
+model User {
+  id            String             @id
+  name          String
+  email         String             @unique
+  emailVerified Boolean
+  image         String?
+  createdAt     DateTime
+  updatedAt     DateTime
+  accounts      Account[]
+  sessions      Session[]
+  preferences   UserPreferences?   // one-to-one relationship
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime
+  updatedAt DateTime
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime
+  updatedAt             DateTime
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("account")
+}
+
+model Verification {
+  id         String    @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime?
+  updatedAt  DateTime?
+
+  @@map("verification")
+}

@@ -1,10 +1,23 @@
 import { NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
 const DEEPSEEK_BASE_URL = "https://api.deepseek.com";
 
 export async function POST(request: Request) {
   try {
+    // Check authentication
+    const session = await auth.api.getSession({
+      headers: request.headers,
+    });
+
+    if (!session) {
+      return NextResponse.json(
+        { error: "Authentication required", requiresAuth: true },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const { title, url, summary, customPrompt } = body;
 

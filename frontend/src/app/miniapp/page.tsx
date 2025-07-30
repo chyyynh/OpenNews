@@ -81,7 +81,7 @@ export default function MiniApp() {
     isSaving: isSavingTags,
     toggleTag,
     saveUserPreferences,
-  } = useTags(user);
+  } = useTags();
   console.log("About to call useSources...");
   const {
     sources,
@@ -90,7 +90,7 @@ export default function MiniApp() {
     isSaving: isSavingSources,
     toggleSource,
     saveUserSourcePreferences,
-  } = useSources(user);
+  } = useSources();
   console.log("useSources returned:", {
     sourcesLength: sources?.length,
     toggleSource: !!toggleSource,
@@ -102,7 +102,7 @@ export default function MiniApp() {
     isSaving: isSavingPrompt,
     saveSuccess,
     handleSavePrompt,
-  } = useCustomPrompt(user);
+  } = useCustomPrompt();
 
   // Handle saving prompt with toast notifications
   const handleSavePromptWithToast = async () => {

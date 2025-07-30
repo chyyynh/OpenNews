@@ -1,41 +1,34 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { PrismaClient } from "@prisma/client";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+const prisma = new PrismaClient();
+
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
-    const telegram_id = url.searchParams.get("telegram_id");
+    const user_id = url.searchParams.get("user_id");
 
-    if (!telegram_id) {
+    if (!user_id) {
       return NextResponse.json(
-        { error: "Missing telegram_id parameter" },
+        { error: "Missing user_id parameter" },
         { status: 400 }
       );
     }
 
-    // Get user's selected sources
-    const { data: userPref, error: userError } = await supabase
-      .from("user_preferences")
-      .select("selected_sources")
-      .eq("telegram_id", telegram_id)
-      .single();
-
-    if (userError && userError.code !== "PGRST116") {
-      console.error("Error fetching user sources:", userError);
-      // Return empty array if column doesn't exist yet
-      return NextResponse.json({
-        selected_sources: [],
-        note: "selected_sources column may not exist yet"
-      });
-    }
+    // Get user's selected sources using Prisma
+    const userPreferences = await prisma.userPreferences.findUnique({
+      where: { user_id },
+      select: { selected_sources: true }
+    });
 
     return NextResponse.json({
-      selected_sources: userPref?.selected_sources || [],
+      selected_sources: userPreferences?.selected_sources || [],
     });
   } catch (error) {
     console.error("Error in sources GET API:", error);
@@ -49,11 +42,11 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { telegram_id, selected_sources } = body;
+    const { user_id, selected_sources } = body;
 
-    if (!telegram_id) {
+    if (!user_id) {
       return NextResponse.json(
-        { error: "Missing telegram_id" },
+        { error: "Missing user_id" },
         { status: 400 }
       );
     }
@@ -65,29 +58,19 @@ export async function POST(request: Request) {
       );
     }
 
-    // Upsert user sources preferences
-    const { error } = await supabase
-      .from("user_preferences")
-      .upsert(
-        {
-          telegram_id: telegram_id,
-          selected_sources: selected_sources,
-          updated_at: new Date(),
-        },
-        {
-          onConflict: "telegram_id",
-        }
-      );
-
-    if (error) {
-      console.error("Error saving user sources:", error);
-      // If column doesn't exist, still return success but with note
-      return NextResponse.json({
-        message: "Sources preferences saved (may need DB schema update)",
+    // Upsert user sources preferences using Prisma
+    await prisma.userPreferences.upsert({
+      where: { user_id },
+      update: {
         selected_sources,
-        note: "selected_sources column may need to be added to user_preferences table"
-      });
-    }
+        updated_at: new Date(),
+      },
+      create: {
+        user_id,
+        selected_sources,
+        updated_at: new Date(),
+      },
+    });
 
     return NextResponse.json({ 
       message: "Sources preferences saved successfully",

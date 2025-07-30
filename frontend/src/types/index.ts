@@ -20,6 +20,14 @@ export interface TelegramUser {
   hash: string;
 }
 
+// Generic user type that works with both Telegram and Better Auth
+export interface AppUser {
+  id: string | number;
+  name?: string;
+  email?: string;
+  image?: string;
+}
+
 export interface TelegramWebApp {
   version: string;
   platform: string;
