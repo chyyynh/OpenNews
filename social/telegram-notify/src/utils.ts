@@ -44,20 +44,20 @@ interface ArticleForSummary {
 	};
 }
 
-// DeepSeek API response types
-interface DeepSeekMessage {
+// OpenRouter API response types
+interface OpenRouterMessage {
 	role: string;
 	content: string;
 }
 
-interface DeepSeekChoice {
-	message: DeepSeekMessage;
+interface OpenRouterChoice {
+	message: OpenRouterMessage;
 	finish_reason: string;
 	index: number;
 }
 
-interface DeepSeekResponse {
-	choices: DeepSeekChoice[];
+interface OpenRouterResponse {
+	choices: OpenRouterChoice[];
 	usage?: {
 		prompt_tokens: number;
 		completion_tokens: number;
@@ -65,7 +65,7 @@ interface DeepSeekResponse {
 	};
 }
 
-export async function summarizeWithDeepSeek(apiKey: string, articles: ArticleForSummary[]): Promise<string> {
+export async function summarizeWithOpenRouter(apiKey: string, articles: ArticleForSummary[]): Promise<string> {
 	try {
 		// Prepare the prompt using the structured data
 		let articlesForPrompt = '';
@@ -110,15 +110,15 @@ export async function summarizeWithDeepSeek(apiKey: string, articles: ArticleFor
 			---`;
 		console.log('Using default summary prompt.');
 
-		console.log('Sending request to DeepSeek API via utils...');
-		const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+		console.log('Sending request to OpenRouter API via utils...');
+		const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
 				Authorization: `Bearer ${apiKey}`,
 			},
 			body: JSON.stringify({
-				model: 'deepseek-chat',
+				model: 'deepseek/deepseek-r1-0528',
 				messages: [{ role: 'user', content: prompt }],
 				temperature: 0.7,
 				max_tokens: 1024,
@@ -127,19 +127,19 @@ export async function summarizeWithDeepSeek(apiKey: string, articles: ArticleFor
 
 		if (!response.ok) {
 			const errorBody = await response.text();
-			throw new Error(`DeepSeek API Error: ${response.status} ${response.statusText} - ${errorBody}`);
+			throw new Error(`OpenRouter API Error: ${response.status} ${response.statusText} - ${errorBody}`);
 		}
 
-		const data: DeepSeekResponse = await response.json();
+		const data: OpenRouterResponse = await response.json();
 		if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-			throw new Error('DeepSeek API Error: No response received.');
+			throw new Error('OpenRouter API Error: No response received.');
 		}
 
 		const summary = data.choices[0].message.content;
-		console.log('DeepSeek Summary Received via utils (length):', summary.length);
+		console.log('OpenRouter Summary Received via utils (length):', summary.length);
 
 		if (summary.length > 4096) {
-			console.warn(`DeepSeek summary exceeded 4096 chars (${summary.length}). Returning truncated version.`);
+			console.warn(`OpenRouter summary exceeded 4096 chars (${summary.length}). Returning truncated version.`);
 			return summary.substring(0, 4096); // Truncate if needed, although we asked for less
 		}
 

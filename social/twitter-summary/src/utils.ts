@@ -127,15 +127,15 @@ export async function selectTopArticle(supabase: any): Promise<ArticleWithScore 
 	return articlesWithScores[0];
 }
 
-async function callDeepSeek(prompt: string, deepseekApiKey: string, temperature: number = 0.8): Promise<string> {
-	const response = await fetch('https://api.deepseek.com/chat/completions', {
+async function callOpenRouter(prompt: string, openrouterApiKey: string, temperature: number = 0.8): Promise<string> {
+	const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',
-			Authorization: `Bearer ${deepseekApiKey}`,
+			Authorization: `Bearer ${openrouterApiKey}`,
 		},
 		body: JSON.stringify({
-			model: 'deepseek-chat',
+			model: 'deepseek/deepseek-r1-0528',
 			messages: [
 				{
 					role: 'user',
@@ -148,7 +148,7 @@ async function callDeepSeek(prompt: string, deepseekApiKey: string, temperature:
 	});
 
 	if (!response.ok) {
-		throw new Error(`DeepSeek API error: ${response.status}`);
+		throw new Error(`OpenRouter API error: ${response.status}`);
 	}
 
 	const data = await response.json();
@@ -161,7 +161,7 @@ async function callDeepSeek(prompt: string, deepseekApiKey: string, temperature:
 	return summary.trim();
 }
 
-export async function generateTwitterSummary(article: ArticleWithScore, deepseekApiKey: string): Promise<string> {
+export async function generateTwitterSummary(article: ArticleWithScore, openrouterApiKey: string): Promise<string> {
 	const maxCharacters = 240; // 為 URL 預留空間
 	const maxRetries = 3;
 	
@@ -204,7 +204,7 @@ export async function generateTwitterSummary(article: ArticleWithScore, deepseek
 
 		console.log(`Attempt ${attempt}: Generating Twitter summary...`);
 		
-		const summary = await callDeepSeek(prompt, deepseekApiKey, 0.7 + (attempt * 0.1));
+		const summary = await callOpenRouter(prompt, openrouterApiKey, 0.7 + (attempt * 0.1));
 		
 		// 使用 twitter-text 精確計算字數
 		const parsedTweet = twitterText.parseTweet(summary);

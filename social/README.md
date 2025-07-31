@@ -19,7 +19,7 @@ social-connect/
 - **功能**: 每3小時生成並推送新聞摘要到 Telegram
 - **排程**: `0 */3 * * *` (每3小時執行)
 - **範圍**: 90-180分鐘前的文章
-- **AI引擎**: DeepSeek API
+- **AI引擎**: OpenRouter API
 - **推送對象**: 註冊用戶 + 頻道
 
 ### 2. 🤖 Telegram Bot Worker
@@ -75,7 +75,7 @@ SUPABASE_URL=<your-supabase-url>
 SUPABASE_SERVICE_ROLE_KEY=<your-supabase-key>
 TELEGRAM_BOT_TOKEN=<your-telegram-bot-token>
 TELEGRAM_CHANNEL_ID=<your-telegram-channel-id>
-DEEPSEEK_API_KEY=<your-deepseek-api-key>
+OPENROUTER_API_KEY=<your-openrouter-api-key>
 GEMINI_API_KEY=<your-gemini-api-key>
 ```
 
@@ -90,7 +90,7 @@ TELEGRAM_BOT_TOKEN=<your-telegram-bot-token>
 ```
 SUPABASE_URL=<your-supabase-url>
 SUPABASE_SERVICE_ROLE_KEY=<your-supabase-key>
-DEEPSEEK_API_KEY=<your-deepseek-api-key>
+OPENROUTER_API_KEY=<your-openrouter-api-key>
 TWITTER_CLIENT_ID=<your-twitter-client-id>
 TWITTER_CLIENT_SECRET=<your-twitter-client-secret>
 TWITTER_KV=<your-kv-namespace>

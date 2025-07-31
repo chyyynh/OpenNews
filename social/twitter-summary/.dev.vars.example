@@ -3,7 +3,7 @@
 
 SUPABASE_URL="https://ukrotqzqerbzneekepul.supabase.co"
 SUPABASE_SERVICE_ROLE_KEY="your-supabase-service-role-key"
-DEEPSEEK_API_KEY="your-deepseek-api-key"
+OPENROUTER_API_KEY="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"
 TWITTER_CLIENT_ID="your-twitter-client-id"
 TWITTER_CLIENT_SECRET="your-twitter-client-secret"
 

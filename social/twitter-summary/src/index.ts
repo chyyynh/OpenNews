@@ -8,7 +8,7 @@ interface Env {
 	TWITTER_CLIENT_ID: string;
 	TWITTER_CLIENT_SECRET: string;
 	TWITTER_KV: KVNamespace;
-	DEEPSEEK_API_KEY: string;
+	OPENROUTER_API_KEY: string;
 }
 
 export default {
@@ -48,8 +48,8 @@ export default {
 			console.log(`  Published: ${topArticle.published_date}`);
 			
 			// 生成專門用於 Twitter 的總結
-			console.log('Generating Twitter summary with DeepSeek...');
-			const twitterSummary = await generateTwitterSummary(topArticle, env.DEEPSEEK_API_KEY);
+			console.log('Generating Twitter summary with OpenRouter...');
+			const twitterSummary = await generateTwitterSummary(topArticle, env.OPENROUTER_API_KEY);
 			
 			console.log(`Generated summary: "${twitterSummary}"`);
 			

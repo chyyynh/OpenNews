@@ -63,7 +63,7 @@ pnpm run deploy
 
 可以通過 Cloudflare Workers 日誌查看：
 - 文章選擇過程和評分
-- DeepSeek API 調用和重試
+- OpenRouter API 調用和重試
 - 字數檢查結果
 - Twitter 發布狀態
 
@@ -78,7 +78,7 @@ npx tsx src/test-letter-count.ts
 
 - `SUPABASE_URL`: Supabase 項目 URL
 - `SUPABASE_SERVICE_ROLE_KEY`: Supabase 服務角色密鑰
-- `DEEPSEEK_API_KEY`: DeepSeek API 密鑰
+- `OPENROUTER_API_KEY`: OpenRouter API 密鑰
 - `TWITTER_CLIENT_ID`: Twitter API 客戶端 ID  
 - `TWITTER_CLIENT_SECRET`: Twitter API 客戶端密鑰
 - `TWITTER_KV`: Cloudflare KV 存儲 (用於 Twitter token)

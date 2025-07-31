@@ -4,7 +4,7 @@ interface Env {
 	TWITTER_CLIENT_ID: string;
 	TWITTER_CLIENT_SECRET: string;
 	TWITTER_KV: KVNamespace;
-	DEEPSEEK_API_KEY: string;
+	OPENROUTER_API_KEY: string;
 }
 
 export function splitContentIntoTweets(content: string, maxLength = 280): string[] {

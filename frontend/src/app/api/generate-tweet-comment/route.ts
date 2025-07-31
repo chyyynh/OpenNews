@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 
-const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
-const DEEPSEEK_BASE_URL = "https://api.deepseek.com";
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
 export async function POST(request: Request) {
   try {
@@ -28,8 +28,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // DeepSeek API Call
-    console.log("Received for DeepSeek:", {
+    // OpenRouter API Call
+    console.log("Received for OpenRouter:", {
       title,
       url,
       summary,
@@ -42,16 +42,16 @@ export async function POST(request: Request) {
       摘要: ${summary || "No summary available."}
       連結: ${url}`;
 
-    console.log("Generated prompt for DeepSeek:", prompt);
+    console.log("Generated prompt for OpenRouter:", prompt);
 
-    const response = await fetch(`${DEEPSEEK_BASE_URL}/chat/completions`, {
+    const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "deepseek-chat",
+        model: "deepseek/deepseek-r1-0528",
         messages: [
           {
             role: "user",
@@ -65,7 +65,7 @@ export async function POST(request: Request) {
 
     if (!response.ok) {
       throw new Error(
-        `DeepSeek API error: ${response.status} ${response.statusText}`
+        `OpenRouter API error: ${response.status} ${response.statusText}`
       );
     }
 
@@ -74,7 +74,7 @@ export async function POST(request: Request) {
 
     if (!comment) {
       return NextResponse.json(
-        { error: "Failed to generate comment from DeepSeek" },
+        { error: "Failed to generate comment from OpenRouter" },
         { status: 500 }
       );
     }

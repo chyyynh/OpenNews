@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { sendMessageToTelegram, summarizeWithDeepSeek } from './utils';
+import { sendMessageToTelegram, summarizeWithOpenRouter } from './utils';
 
 interface Env {
 	SUPABASE_URL: string;
@@ -7,7 +7,7 @@ interface Env {
 	TELEGRAM_BOT_TOKEN: string;
 	TELEGRAM_CHANNEL_ID: string;
 	GEMINI_API_KEY: string;
-	DEEPSEEK_API_KEY: string;
+	OPENROUTER_API_KEY: string;
 }
 
 export default {
@@ -65,7 +65,7 @@ export default {
 
 		try {
 			// Use the new AI summarization utility function
-			const summary = await summarizeWithDeepSeek(env.DEEPSEEK_API_KEY, articles);
+			const summary = await summarizeWithOpenRouter(env.OPENROUTER_API_KEY, articles);
 			const finalReport = `[summary] ${timeWindowIdentifier}\n\n${summary}`;
 
 			// --- Telegram Posting ---
