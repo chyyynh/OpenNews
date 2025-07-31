@@ -121,11 +121,7 @@ export default {
 			if (!usersError && users && users.length > 0) {
 				for (const user of users) {
 					try {
-						await sendMessageToTelegram(
-							env.TELEGRAM_BOT_TOKEN,
-							user.telegram_id.toString(),
-							`兵法推演失策 (${timeWindowIdentifier}): ${errorMessage}`
-						);
+						await sendMessageToTelegram(env.TELEGRAM_BOT_TOKEN, user.telegram_id.toString(), `(${timeWindowIdentifier}): ${errorMessage}`);
 					} catch (singleUserError) {
 						console.error(`Failed to send error message to user ${user.telegram_id}:`, singleUserError);
 					}
