@@ -1,0 +1,12 @@
+# Local development environment variables
+# Copy this file to .dev.vars and fill in your values
+
+SUPABASE_URL="https://ukrotqzqerbzneekepul.supabase.co"
+SUPABASE_SERVICE_ROLE_KEY="your-supabase-service-role-key"
+DEEPSEEK_API_KEY="your-deepseek-api-key"
+TWITTER_CLIENT_ID="your-twitter-client-id"
+TWITTER_CLIENT_SECRET="your-twitter-client-secret"
+
+# Note: KV values need to be set using wrangler KV commands
+# wrangler kv:key put --binding=TWITTER_KV "REFRESH_TOKEN" "your-refresh-token"
+# wrangler kv:key put --binding=TWITTER_KV "ACCESS_TOKEN" "your-access-token"
