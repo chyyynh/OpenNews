@@ -48,7 +48,8 @@ export default {
 			console.log(`  Published: ${topArticle.published_date}`);
 			
 			// 生成專門用於 Twitter 的總結
-			console.log('Generating Twitter summary with OpenRouter...');
+			console.log('Generating Twitter summary with Gemini 2.5 Flash Lite...');
+			console.log('Debug - OpenRouter API Key:', env.OPENROUTER_API_KEY ? `${env.OPENROUTER_API_KEY.substring(0, 20)}...` : 'MISSING');
 			const twitterSummary = await generateTwitterSummary(topArticle, env.OPENROUTER_API_KEY);
 			
 			console.log(`Generated summary: "${twitterSummary}"`);

@@ -1,4 +1,8 @@
 export async function sendMessageToTelegram(token: string, chatId: string, message: string) {
+	console.log('Debug sendMessageToTelegram - Token:', token ? `${token.substring(0, 20)}...` : 'MISSING');
+	console.log('Debug sendMessageToTelegram - Chat ID:', chatId);
+	console.log('Debug sendMessageToTelegram - Message length:', message.length);
+	
 	const url = `https://api.telegram.org/bot${token}/sendMessage`;
 	const body = JSON.stringify({
 		chat_id: chatId,
@@ -118,7 +122,7 @@ export async function summarizeWithOpenRouter(apiKey: string, articles: ArticleF
 				Authorization: `Bearer ${apiKey}`,
 			},
 			body: JSON.stringify({
-				model: 'deepseek/deepseek-r1-0528',
+				model: 'deepseek/deepseek-chat',
 				messages: [{ role: 'user', content: prompt }],
 				temperature: 0.7,
 				max_tokens: 1024,
@@ -131,16 +135,23 @@ export async function summarizeWithOpenRouter(apiKey: string, articles: ArticleF
 		}
 
 		const data: OpenRouterResponse = await response.json();
+		console.log('OpenRouter API Response:', JSON.stringify(data, null, 2));
+		
 		if (!data.choices || !data.choices[0] || !data.choices[0].message) {
 			throw new Error('OpenRouter API Error: No response received.');
 		}
 
 		const summary = data.choices[0].message.content;
-		console.log('OpenRouter Summary Received via utils (length):', summary.length);
+		console.log('OpenRouter Summary Received via utils (length):', summary?.length || 0);
+		console.log('OpenRouter Summary Content (first 500 chars):', summary?.substring(0, 500));
+
+		if (!summary || summary.trim().length === 0) {
+			throw new Error('OpenRouter API returned empty summary');
+		}
 
 		if (summary.length > 4096) {
 			console.warn(`OpenRouter summary exceeded 4096 chars (${summary.length}). Returning truncated version.`);
-			return summary.substring(0, 4096); // Truncate if needed, although we asked for less
+			return summary.substring(0, 4096);
 		}
 
 		return summary;

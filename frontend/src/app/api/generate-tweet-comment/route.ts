@@ -51,7 +51,7 @@ export async function POST(request: Request) {
         Authorization: `Bearer ${OPENROUTER_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "deepseek/deepseek-r1-0528",
+        model: "deepseek/deepseek-chat",
         messages: [
           {
             role: "user",

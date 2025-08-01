@@ -69,41 +69,15 @@ export default {
 			const finalReport = `[summary] ${timeWindowIdentifier}\n\n${summary}`;
 
 			// --- Telegram Posting ---
-			console.log(`Sending summary for ${timeWindowIdentifier} to Telegram...`);
+			console.log(`Sending summary for ${timeWindowIdentifier} to Telegram channel...`);
+			console.log('Debug - Bot Token:', env.TELEGRAM_BOT_TOKEN ? `${env.TELEGRAM_BOT_TOKEN.substring(0, 20)}...` : 'MISSING');
+			console.log('Debug - Channel ID:', env.TELEGRAM_CHANNEL_ID);
 			try {
-				// Get all user telegram IDs from Supabase
-				const { data: users, error: usersError } = await supabase.from('user_preferences').select('telegram_id');
-
-				if (usersError) {
-					console.error('Error fetching users:', usersError);
-					return;
-				}
-
-				if (!users || users.length === 0) {
-					console.log('No users found to send message to');
-					return;
-				}
-
-				// Send message to all users
-				for (const user of users) {
-					try {
-						await sendMessageToTelegram(env.TELEGRAM_BOT_TOKEN, user.telegram_id.toString(), finalReport);
-					} catch (singleUserError) {
-						console.error(`Failed to send message to user ${user.telegram_id}:`, singleUserError);
-					}
-				}
-
-				// Send message to channel
-				try {
-					await sendMessageToTelegram(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHANNEL_ID, finalReport);
-					console.log('telegram: AI Daily report sent to channel successfully');
-				} catch (channelError) {
-					console.error('Failed to send message to channel:', channelError);
-				}
-
-				console.log('telegram: AI Daily report sent successfully');
-			} catch (telegramError) {
-				console.error('telegram: Failed to send message:', telegramError);
+				// Send message to channel only
+				await sendMessageToTelegram(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHANNEL_ID, finalReport);
+				console.log('telegram: AI Daily report sent to channel successfully');
+			} catch (channelError) {
+				console.error('Failed to send message to channel:', channelError);
 			}
 
 			// Twitter posting removed - now handled by separate Twitter worker
@@ -115,17 +89,12 @@ export default {
 			} else if (typeof aiError === 'string') {
 				errorMessage = aiError;
 			}
-			// Send error message to all users
-			const { data: users, error: usersError } = await supabase.from('user_preferences').select('telegram_id');
-
-			if (!usersError && users && users.length > 0) {
-				for (const user of users) {
-					try {
-						await sendMessageToTelegram(env.TELEGRAM_BOT_TOKEN, user.telegram_id.toString(), `(${timeWindowIdentifier}): ${errorMessage}`);
-					} catch (singleUserError) {
-						console.error(`Failed to send error message to user ${user.telegram_id}:`, singleUserError);
-					}
-				}
+			
+			// Send error message to channel only
+			try {
+				await sendMessageToTelegram(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHANNEL_ID, `❌ 錯誤 (${timeWindowIdentifier}): ${errorMessage}`);
+			} catch (errorSendError) {
+				console.error('Failed to send error message to channel:', errorSendError);
 			}
 		}
 	},
