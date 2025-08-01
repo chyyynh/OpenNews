@@ -173,8 +173,8 @@ async function processUntaggedArticles(supabase: any, env: Env): Promise<void> {
 		.from('articles')
 		.select('id, title, summary, content, url, source, published_date, tags, keywords, scraped_date')
 		.gte('scraped_date', timeframe)
-		.order('scraped_date', { ascending: false })
-		.limit(50);
+		.order('published_date', { ascending: false })
+		.limit(100);
 
 	if (error) {
 		console.error('Error fetching untagged articles:', error);
@@ -190,7 +190,14 @@ async function processUntaggedArticles(supabase: any, env: Env): Promise<void> {
 	const articlesToProcess = articles.filter(article => {
 		const needsTags = !article.tags || article.tags.length === 0;
 		const needsKeywords = !article.keywords || article.keywords.length === 0;
-		return needsTags || needsKeywords;
+		const shouldProcess = needsTags || needsKeywords;
+		
+		// Debug logging for filtering
+		if (!shouldProcess) {
+			console.log(`⏭️  Skipping article ${article.id}: already has tags=[${article.tags?.join(',') || 'null'}] keywords=[${article.keywords?.join(',') || 'null'}]`);
+		}
+		
+		return shouldProcess;
 	});
 
 	if (articlesToProcess.length === 0) {

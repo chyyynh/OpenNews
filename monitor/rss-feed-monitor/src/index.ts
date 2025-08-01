@@ -41,23 +41,41 @@ async function notifyMatchedUsers(supabase: any, env: Env, tags: Array<string>, 
 
 async function processAndInsertArticle(supabase: any, env: Env, item: any, feed?: any, source_type?: string) {
 	console.log(`[${feed.name}] Starting processAndInsertArticle for: ${item.title || item.text || 'No title'}`);
-	
-	const pubDate = item.pubDate || item.isoDate || null;
-	const url = item.link || item.url || `https://t.me/${feed.RSSLink}/${item.message_id}`;
+
+	// Handle different date formats (RSS vs Atom)
+	const pubDate = item.pubDate || item.isoDate || item.published || item.updated || null;
+	// Handle different link formats (RSS vs Atom)
+	let url;
+	if (typeof item.link === 'string') {
+		url = item.link;
+	} else if (item.link?.['@_href']) {
+		// Atom feed with XML attributes
+		url = item.link['@_href'];
+	} else if (item.link?.href) {
+		// Standard href property
+		url = item.link.href;
+	} else if (item.url) {
+		url = item.url;
+	} else {
+		url = `https://t.me/${feed.RSSLink}/${item.message_id}`;
+	}
 
 	// Scrape article content if it's an RSS feed item with a link
 	let crawled_content = '';
-	if (source_type === 'rss' && item.link) {
-		crawled_content = await scrapeArticleContent(item.link);
+	if (source_type === 'rss' && url && typeof url === 'string') {
+		try {
+			crawled_content = await scrapeArticleContent(url);
+		} catch (scrapeError) {
+			console.warn(`[${feed.name}] Content scraping failed for ${url}, continuing with RSS data only`);
+			crawled_content = '';
+		}
 	}
 
 	console.log(`[${feed.name}] Preparing insert data...`);
-	
+
 	// For arXiv feeds, use description as summary
-	const summary = (feed.name && feed.name.includes('arXiv')) 
-		? (item.description || item.summary || null)
-		: null;
-	
+	const summary = feed.name && feed.name.includes('arXiv') ? item.description || item.summary || null : null;
+
 	const insert = {
 		url: url,
 		title: item.title || item.text || item.news_title || 'No Title',
@@ -67,9 +85,9 @@ async function processAndInsertArticle(supabase: any, env: Env, item: any, feed?
 		keywords: [], // Empty array for now, will be filled by separate cronjob
 		tags: [], // Empty array for now, will be filled by separate cronjob
 		tokens: [], // Empty array for now, will be filled by separate cronjob
-		summary: summary, // For arXiv: use description, others: null (filled by separate cronjob)
+		summary: '', // For arXiv: use description, others: null (filled by separate cronjob)
 		source_type: source_type || 'rss',
-		content: crawled_content || null,
+		content: summary || null,
 	};
 
 	console.log(`[${feed.name}] Inserting article into database...`);
@@ -138,22 +156,86 @@ export default {
 					const xml = await res.text();
 					const data = parser.parse(xml);
 
-					const items = data?.rss?.channel?.item;
-					if (!items || !Array.isArray(items)) {
-						console.error(`[${feed.name}] Invalid format`);
+					// Support multiple feed formats: RSS, Atom, etc.
+					let items;
+					if (data?.rss?.channel?.item) {
+						// Standard RSS format
+						items = data.rss.channel.item;
+					} else if (data?.feed?.entry) {
+						// Atom format
+						items = data.feed.entry;
+					} else if (data?.channel?.item) {
+						// Alternative RSS format
+						items = data.channel.item;
+					} else {
+						console.error(`[${feed.name}] Invalid format - no items found`);
+						console.log(`[${feed.name}] Feed structure:`, JSON.stringify(data, null, 2).substring(0, 500) + '...');
 						return;
 					}
 
-					const urls = items.map((item: any) => item.link);
-					const { data: existing, error: fetchError } = await supabase.from('articles').select('url').in('url', urls);
-
-					if (fetchError) {
-						console.error(`[${feed.name}] Fetch error`, fetchError);
+					if (!items || !Array.isArray(items)) {
+						console.error(`[${feed.name}] Items is not an array`);
 						return;
+					}
+
+					// Set different limits based on feed type
+					if (feed.name && !feed.name.toLowerCase().includes('arxiv')) {
+						// Only limit non-arXiv feeds to 5 items for frequent polling
+						if (items.length > 5) {
+							console.log(`[${feed.name}] Feed has ${items.length} items, limiting to first 5`);
+							items = items.slice(0, 5);
+						}
+					} else if (feed.name && feed.name.toLowerCase().includes('arxiv')) {
+						console.log(`[${feed.name}] arXiv feed: processing all ${items.length} items`);
+					}
+
+					const urls = items
+						.map((item: any) => {
+							if (typeof item.link === 'string') {
+								return item.link;
+							} else if (item.link?.['@_href']) {
+								return item.link['@_href'];
+							} else if (item.link?.href) {
+								return item.link.href;
+							} else if (item.url) {
+								return item.url;
+							}
+							return null;
+						})
+						.filter(Boolean);
+
+					// Split URLs into batches to avoid 414 Request-URI Too Large error
+					const BATCH_SIZE = 50;
+					let existing: any[] = [];
+
+					for (let i = 0; i < urls.length; i += BATCH_SIZE) {
+						const batch = urls.slice(i, i + BATCH_SIZE);
+						const { data: batchExisting, error: fetchError } = await supabase.from('articles').select('url').in('url', batch);
+
+						if (fetchError) {
+							console.error(`[${feed.name}] Fetch error in batch ${i / BATCH_SIZE + 1}:`, fetchError);
+							return;
+						}
+
+						if (batchExisting) {
+							existing.push(...batchExisting);
+						}
 					}
 
 					const existingUrls = new Set(existing.map((e: any) => e.url));
-					const newItems = items.filter((item: any) => !existingUrls.has(item.link));
+					const newItems = items.filter((item: any) => {
+						let itemUrl;
+						if (typeof item.link === 'string') {
+							itemUrl = item.link;
+						} else if (item.link?.['@_href']) {
+							itemUrl = item.link['@_href'];
+						} else if (item.link?.href) {
+							itemUrl = item.link.href;
+						} else if (item.url) {
+							itemUrl = item.url;
+						}
+						return itemUrl && !existingUrls.has(itemUrl);
+					});
 
 					await Promise.allSettled(newItems.map((item: any) => processAndInsertArticle(supabase, env, item, feed, 'rss')));
 

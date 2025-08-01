@@ -215,8 +215,17 @@ export async function scrapeArticleContent(url: string): Promise<string> {
 
 		console.log(`[Scraper] Scraped content from ${url} (length: ${content.length})`);
 		return content.trim(); // Trim final whitespace
-	} catch (error) {
-		console.error(`[Scraper] Error scraping ${url}:`, error);
+	} catch (error: any) {
+		// Handle common scraping errors more gracefully
+		if (error.response?.status === 403) {
+			console.warn(`[Scraper] Access denied (403) for ${url} - likely protected by bot detection`);
+		} else if (error.response?.status === 429) {
+			console.warn(`[Scraper] Rate limited (429) for ${url}`);
+		} else if (error.code === 'ECONNRESET' || error.code === 'ENOTFOUND') {
+			console.warn(`[Scraper] Network error for ${url}: ${error.code}`);
+		} else {
+			console.warn(`[Scraper] Failed to scrape ${url}: ${error.message || error}`);
+		}
 		return '';
 	}
 }
