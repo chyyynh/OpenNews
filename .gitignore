@@ -12,6 +12,7 @@
 wrangler.jsonc
 */wrangler.jsonc
 **/wrangler.jsonc
+**/worker-configuration.d.ts
 
 # Logs
 *.log

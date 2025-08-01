@@ -1,5 +1,7 @@
 # OpenNews
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/chyyynh/OpenNews)
+
 [Website Demo](https://open-news-psi.vercel.app/) | [Telegram Bot](https://t.me/OpenNews_bot) | [Telegram Channel](https://t.me/+q39F_7Iju-syOTll) | [Twitter Demo](https://x.com/artofcryptowar)
 
 A AI news Telegram bot that lets users choose what they care about — from specific tokens to niche sectors like DeFi, NFTs, or onchain gaming.
