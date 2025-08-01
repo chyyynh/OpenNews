@@ -144,15 +144,37 @@ async function callGeminiForAnalysis(
 }
 
 async function processUntaggedArticles(supabase: any, env: Env): Promise<void> {
-	// Fetch articles that need processing
-	// Using OR condition to catch both empty arrays and null values
+	// First, let's check what articles exist in the timeframe
+	const timeframe = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
+	console.log(`Looking for articles since: ${timeframe}`);
+	
+	// Fetch all recent articles first to debug
+	const { data: allArticles, error: allError } = await supabase
+		.from('articles')
+		.select('id, title, tags, keywords, scraped_date, published_date')
+		.gte('scraped_date', timeframe)
+		.order('scraped_date', { ascending: false })
+		.limit(10);
+	
+	if (allError) {
+		console.error('Error fetching all articles:', allError);
+		return;
+	}
+	
+	console.log(`Total articles in timeframe: ${allArticles?.length || 0}`);
+	if (allArticles && allArticles.length > 0) {
+		allArticles.forEach(article => {
+			console.log(`  Article ${article.id}: tags=[${article.tags?.join(',') || 'null'}], keywords=[${article.keywords?.join(',') || 'null'}]`);
+		});
+	}
+
+	// Now fetch articles that need processing
 	const { data: articles, error } = await supabase
 		.from('articles')
-		.select('id, title, summary, content, url, source, published_date, tags, keywords')
-		.or('tags.eq.[],keywords.eq.[]')
-		.gte('scraped_date', new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString()) // Last 4 hours
+		.select('id, title, summary, content, url, source, published_date, tags, keywords, scraped_date')
+		.gte('scraped_date', timeframe)
 		.order('scraped_date', { ascending: false })
-		.limit(30); // Process 30 articles at a time
+		.limit(50);
 
 	if (error) {
 		console.error('Error fetching untagged articles:', error);
@@ -160,38 +182,56 @@ async function processUntaggedArticles(supabase: any, env: Env): Promise<void> {
 	}
 
 	if (!articles || articles.length === 0) {
-		console.log('No untagged articles found');
+		console.log('No articles found in the time range');
 		return;
 	}
 
-	console.log(`Found ${articles.length} articles to process`);
+	// Filter articles that actually need processing (null, empty, or very short arrays)
+	const articlesToProcess = articles.filter(article => {
+		const needsTags = !article.tags || article.tags.length === 0;
+		const needsKeywords = !article.keywords || article.keywords.length === 0;
+		return needsTags || needsKeywords;
+	});
+
+	if (articlesToProcess.length === 0) {
+		console.log('No articles need AI analysis');
+		return;
+	}
+
+	console.log(`Found ${articlesToProcess.length} articles to process (out of ${articles.length} total)`);
+
+	let processedCount = 0;
+	let errorCount = 0;
 
 	// Process articles sequentially to avoid rate limiting
-	for (const article of articles) {
+	for (const article of articlesToProcess) {
 		try {
 			console.log(`Processing article ${article.id}: ${article.title}`);
 			
 			const analysis = await callGeminiForAnalysis(article, env.OPENROUTER_API_KEY);
 			
 			// Update the article with AI analysis
+			// Combine tags and category, removing duplicates
+			const allTags = [...analysis.tags, analysis.category].filter((v, i, a) => a.indexOf(v) === i);
+			
 			const { error: updateError } = await supabase
 				.from('articles')
 				.update({
-					tags: analysis.tags,
+					tags: allTags,
 					keywords: analysis.keywords,
-					summary: analysis.summary,
-					// Store category in tags if not already present
-					tags: [...analysis.tags, analysis.category].filter((v, i, a) => a.indexOf(v) === i)
+					summary: analysis.summary
 				})
 				.eq('id', article.id);
 
 			if (updateError) {
 				console.error(`Error updating article ${article.id}:`, updateError);
+				errorCount++;
 			} else {
 				console.log(`✅ Successfully processed article ${article.id}`);
-				console.log(`   Tags: ${analysis.tags.join(', ')}`);
+				console.log(`   Tags: ${allTags.join(', ')}`);
 				console.log(`   Keywords: ${analysis.keywords.join(', ')}`);
 				console.log(`   Category: ${analysis.category}`);
+				processedCount++;
 			}
 
 			// Add delay to avoid rate limiting
@@ -199,13 +239,20 @@ async function processUntaggedArticles(supabase: any, env: Env): Promise<void> {
 
 		} catch (error) {
 			console.error(`Error processing article ${article.id}:`, error);
+			errorCount++;
 			// Continue with next article
 		}
 	}
+
+	console.log(`\n📊 Processing Summary:`);
+	console.log(`   Total articles in timeframe: ${articles.length}`);
+	console.log(`   Articles needing processing: ${articlesToProcess.length}`);
+	console.log(`   Successfully processed: ${processedCount}`);
+	console.log(`   Errors: ${errorCount}`);
 }
 
 export default {
-	async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+	async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext): Promise<void> {
 		console.log('🤖 Article AI Analysis Worker started');
 		
 		const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
@@ -215,6 +262,7 @@ export default {
 			console.log('✅ Article AI Analysis Worker completed successfully');
 		} catch (error) {
 			console.error('❌ Article AI Analysis Worker failed:', error);
+			throw error; // Re-throw to ensure Cloudflare logs the failure
 		}
 	},
 

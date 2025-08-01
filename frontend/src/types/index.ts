@@ -8,6 +8,7 @@ export interface ArticleItem {
   tags: string[];
   keywords: string[];
   summary: string | null;
+  content: string | null;
 }
 
 export interface TelegramUser {

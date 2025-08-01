@@ -6,7 +6,6 @@ import { useSession } from "@/lib/auth-client";
 
 export function useSources() {
   const { data: session } = useSession();
-  console.log("useSources hook called with session:", session?.user?.id);
 
   const searchParams = useSearchParams();
   const [sources, setSources] = useState<string[]>([
@@ -19,11 +18,6 @@ export function useSources() {
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-
-  console.log("useSources state:", {
-    sourcesLength: sources.length,
-    isLoading,
-  });
 
   // Get selected sources from URL
   const getSelectedSources = useCallback(() => {
@@ -50,7 +44,6 @@ export function useSources() {
       "Hacker News Show HN",
     ];
 
-    console.log("Setting hardcoded sources:", hardcodedSources);
     setSources(hardcodedSources);
     setIsLoading(false);
   }, []);

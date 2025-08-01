@@ -5,6 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import { Loader, ChevronDown } from "lucide-react";
+import { SourceIcon } from "@/components/SourceIcon";
+import { useSourceCategories } from "@/hooks/useSourceCategories";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -67,6 +69,8 @@ export default function Home() {
     toggleSource,
     saveUserSourcePreferences,
   } = useSources();
+
+  const categorizedSources = useSourceCategories(sources);
 
   const {
     customPrompt,
@@ -149,7 +153,7 @@ export default function Home() {
         let query = supabase
           .from("articles")
           .select(
-            "id, title, url, published_date, tags, keywords, summary, source"
+            "id, title, url, published_date, tags, keywords, summary, content, source"
           )
           .order("published_date", { ascending: false });
 
@@ -226,7 +230,7 @@ export default function Home() {
           let query = supabase
             .from("articles")
             .select(
-              "id, title, url, published_date, tags, keywords, summary, source"
+              "id, title, url, published_date, tags, keywords, summary, content, source"
             )
             .order("published_date", { ascending: false });
 
@@ -389,137 +393,44 @@ export default function Home() {
           {/* Separator */}
           <div className="w-px h-6 bg-gray-300 mx-2"></div>
 
-          {/* Sources Filter by Category */}
-          {(() => {
-            // Helper function to get logo path for source
-            const getSourceLogo = (source: string): string | null => {
-              const logoMap: Record<string, string> = {
-                OpenAI: "/logo/openai.svg",
-                "Google Deepmind": "/logo/deepmind-color.svg",
-                Anthropic: "/logo/anthropic.svg",
-                CNBC: "/logo/cnbc.png",
-                Techcrunch: "/logo/techcrunch.png",
-                "arXiv cs.LG": "/logo/arxiv.png",
-                "arXiv cs.AI": "/logo/arxiv.png",
-                "Hacker News AI": "/logo/hackernews.png",
-                "Hacker News Show HN": "/logo/hackernews.png",
-                "Product Hunt - AI": "/logo/producthunt.jpeg",
-                "Browser Company": "/logo/dia.png",
-                Perplexity: "/logo/perplexity.png",
-                // Add normalized variations
-                openai: "/logo/openai.svg",
-                "google deepmind": "/logo/deepmind-color.svg",
-                anthropic: "/logo/anthropic.svg",
-                cnbc: "/logo/cnbc.png",
-                techcrunch: "/logo/techcrunch.png",
-                "arxiv cs.lg": "/logo/arxiv.png",
-                "arxiv cs.ai": "/logo/arxiv.png",
-                "hacker news ai": "/logo/hackernews.png",
-                "hacker news show hn": "/logo/hackernews.png",
-                "product hunt - ai": "/logo/producthunt.jpeg",
-                "browser company": "/logo/dia.png",
-                perplexity: "/logo/perplexity.png",
-              };
-
-              // Try exact match first, then lowercase match
-              return logoMap[source] || logoMap[source.toLowerCase()] || null;
-            };
-
-            // Categorize sources
-            const sourceCategories = {
-              "AI Firm": ["OpenAI", "Google Deepmind", "Anthropic"],
-              News: ["CNBC", "Techcrunch"],
-              Papers: ["arXiv cs.LG", "arXiv cs.AI"],
-              Community: [
-                "Hacker News AI",
-                "Hacker News Show HN",
-                "Product Hunt - AI",
-              ],
-              Application: ["Browser Company", "Perplexity"],
-            };
-
-            // Group sources by category
-            const categorizedSources: { [key: string]: string[] } = {};
-            const uncategorizedSources: string[] = [];
-
-            sources.forEach((source) => {
-              let categorized = false;
-              for (const [category, categoryItems] of Object.entries(
-                sourceCategories
-              )) {
-                if (categoryItems.includes(source)) {
-                  if (!categorizedSources[category]) {
-                    categorizedSources[category] = [];
-                  }
-                  categorizedSources[category].push(source);
-                  categorized = true;
-                  break;
-                }
-              }
-              if (!categorized) {
-                uncategorizedSources.push(source);
-              }
-            });
-
-            // Add uncategorized sources if any
-            if (uncategorizedSources.length > 0) {
-              categorizedSources["Others"] = uncategorizedSources;
-            }
-
-            const renderSourceItem = (source: string) => {
-              const logoPath = getSourceLogo(source);
-              return (
-                <DropdownMenuCheckboxItem
-                  key={source}
-                  checked={selectedSources.includes(source)}
-                  onCheckedChange={() => toggleSource && toggleSource(source)}
-                  className="flex items-center gap-2"
-                >
-                  {logoPath && (
-                    <img
-                      src={logoPath}
-                      alt={`${source} logo`}
-                      className="w-4 h-4 object-contain"
-                      onError={(e) => {
-                        // Hide image if it fails to load
-                        (e.target as HTMLImageElement).style.display = "none";
-                      }}
-                    />
-                  )}
-                  <span>{source}</span>
-                </DropdownMenuCheckboxItem>
+          {Object.entries(categorizedSources).map(
+            ([category, categoryItems]) => {
+              const selectedInCategory = categoryItems.filter((item) =>
+                selectedSources.includes(item)
               );
-            };
 
-            return Object.entries(categorizedSources).map(
-              ([category, categoryItems]) => {
-                const selectedInCategory = categoryItems.filter((item) =>
-                  selectedSources.includes(item)
-                );
-
-                return (
-                  <DropdownMenu key={category}>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="outline"
+              return (
+                <DropdownMenu key={category}>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="flex items-center gap-2"
+                    >
+                      {selectedInCategory.length === 0
+                        ? category
+                        : selectedInCategory.length === 1
+                        ? selectedInCategory[0]
+                        : `${category} (${selectedInCategory.length})`}
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-48">
+                    {categoryItems.map((source) => (
+                      <DropdownMenuCheckboxItem
+                        key={source}
+                        checked={selectedSources.includes(source)}
+                        onCheckedChange={() => toggleSource && toggleSource(source)}
                         className="flex items-center gap-2"
                       >
-                        {selectedInCategory.length === 0
-                          ? category
-                          : selectedInCategory.length === 1
-                          ? selectedInCategory[0]
-                          : `${category} (${selectedInCategory.length})`}
-                        <ChevronDown className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-48">
-                      {categoryItems.map(renderSourceItem)}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                );
-              }
-            );
-          })()}
+                        <SourceIcon source={source} />
+                        <span>{source}</span>
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              );
+            }
+          )}
         </div>
       </div>
 
@@ -574,10 +485,10 @@ export default function Home() {
                   >
                     <h2 className="text-xl font-semibold mb-1">{item.title}</h2>
                   </a>
-                  {/* Show summary if it exists, limit to 3 lines */}
-                  {item.summary && (
+                  {/* Show summary if it exists, otherwise show content, limit to 3 lines */}
+                  {(item.summary || item.content) && (
                     <p className="text-sm text-gray-600 mt-2 line-clamp-3">
-                      {item.summary}
+                      {item.summary || item.content}
                     </p>
                   )}
                   <div className="text-sm text-gray-500 mt-2">
@@ -598,7 +509,7 @@ export default function Home() {
                   <SendToTwitterButton
                     articleTitle={item.title}
                     articleUrl={item.url}
-                    articleSummary={item.summary}
+                    articleSummary={item.summary || item.content}
                     customPrompt={customPrompt}
                   />
                 </li>
