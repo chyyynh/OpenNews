@@ -27,21 +27,45 @@ export function useTags() {
   useEffect(() => {
     let isMounted = true;
     const tags = [
-      "Layer1",
-      "DeFi",
-      "NFT",
-      "GameFi",
+      // AI相關
+      "AI",
+      "MachineLearning",
+      "DeepLearning",
+      "NLP",
+      "ComputerVision",
+      // 科技公司
+      "Google",
+      "Apple",
+      "Microsoft",
+      "Meta",
+      "OpenAI",
+      "Anthropic",
+      // 產業
+      "Tech",
+      "Finance",
+      "Healthcare",
+      "Education",
+      "Gaming",
+      // 事件類型
+      "Funding",
+      "IPO",
+      "Acquisition",
+      "ProductLaunch",
+      "Research",
+      // 產品/硬體
+      "Robot",
+      "Robotics",
+      "Hardware",
+      "VR",
+      "AR",
       "Metaverse",
-      "DAO",
-      "Regulation",
-      "Security",
-      "Exchange",
-      "Trading",
-      "Fundraising",
-      "Ecosystem",
-      "Community",
-      "ETF",
-      "Listing",
+      "IoT",
+      "Smartphone",
+      "Chip",
+      "Semiconductor",
+      // 分類
+      "Business",
+      "Other",
     ];
     setTags(tags);
 
