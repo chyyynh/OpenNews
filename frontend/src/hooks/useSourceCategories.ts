@@ -1,14 +1,10 @@
 import { useMemo } from "react";
 
 const SOURCE_CATEGORIES = {
-  "AI Firm": ["OpenAI", "Google Deepmind", "Anthropic"],
+  "AI Firm": ["OpenAI", "Google Deepmind", "Google Research", "Anthropic"],
   News: ["CNBC", "Techcrunch"],
   Papers: ["arXiv cs.LG", "arXiv cs.AI"],
-  Community: [
-    "Hacker News AI",
-    "Hacker News Show HN",
-    "Product Hunt - AI",
-  ],
+  Community: ["Hacker News AI", "Hacker News Show HN", "Product Hunt - AI"],
   Application: ["Browser Company", "Perplexity"],
 };
 
@@ -19,7 +15,9 @@ export function useSourceCategories(sources: string[]) {
 
     sources.forEach((source) => {
       let found = false;
-      for (const [category, categoryItems] of Object.entries(SOURCE_CATEGORIES)) {
+      for (const [category, categoryItems] of Object.entries(
+        SOURCE_CATEGORIES
+      )) {
         if (categoryItems.includes(source)) {
           if (!categorized[category]) {
             categorized[category] = [];

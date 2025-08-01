@@ -1,5 +1,6 @@
 import {
   siOpenai,
+  siGoogle,
   siGooglegemini,
   siAnthropic,
   siNbc,
@@ -19,18 +20,19 @@ interface SourceIconProps {
 export function SourceIcon({ source, className = "w-4 h-4" }: SourceIconProps) {
   const getSourceIcon = (source: string) => {
     const iconMap: Record<string, any> = {
-      "openai": siOpenai,
+      openai: siOpenai,
       "google deepmind": siGooglegemini,
-      "anthropic": siAnthropic,
-      "cnbc": siNbc,
-      "techcrunch": siTechcrunch,
+      "google research": siGoogle,
+      anthropic: siAnthropic,
+      cnbc: siNbc,
+      techcrunch: siTechcrunch,
       "arxiv cs.lg": siArxiv,
       "arxiv cs.ai": siArxiv,
       "hacker news ai": siYcombinator,
       "hacker news show hn": siYcombinator,
       "product hunt - ai": siProducthunt,
       "browser company": siArc,
-      "perplexity": siPerplexity,
+      perplexity: siPerplexity,
     };
 
     return iconMap[source.toLowerCase()] || null;

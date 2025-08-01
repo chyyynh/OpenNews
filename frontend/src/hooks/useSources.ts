@@ -36,12 +36,16 @@ export function useSources() {
       "OpenAI",
       "Anthropic",
       "Google Deepmind",
+      "Google Research",
       "CNBC",
       "Techcrunch",
       "arXiv cs.LG",
       "arXiv cs.AI",
       "Hacker News AI",
       "Hacker News Show HN",
+      "Product Hunt - AI",
+      "Browser Company",
+      "Perplexity",
     ];
 
     setSources(hardcodedSources);
