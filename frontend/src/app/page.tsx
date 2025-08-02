@@ -287,17 +287,58 @@ export default function Home() {
     selectedTimeFilter,
   ]);
 
-  // Fetch articles when selectedTags, selectedSources, or selectedTimeFilter change
+  // Initial fetch on mount and when dependencies change
   useEffect(() => {
-    // Add a small delay to avoid rapid consecutive requests
-    const timeoutId = setTimeout(() => {
-      fetchArticles(0, true);
-    }, 100);
+    const loadArticles = async () => {
+      setIsLoading(true);
+      setHasMore(true);
 
-    return () => {
-      clearTimeout(timeoutId);
+      try {
+        let query = supabase
+          .from("articles")
+          .select(
+            "id, title, url, published_date, tags, keywords, summary, content, source"
+          )
+          .order("published_date", { ascending: false });
+
+        if (selectedTags.length > 0) {
+          query = query.overlaps("tags", selectedTags);
+        }
+
+        if (selectedSources.length > 0) {
+          query = query.in("source", selectedSources);
+        }
+
+        // Add time filter
+        const dateFilter = getDateFilter(selectedTimeFilter);
+        if (dateFilter) {
+          query = query.gte("published_date", dateFilter);
+        }
+
+        query = query.range(0, 19); // Load 20 items at a time
+
+        const { data, error } = await query;
+
+        if (error) {
+          console.error("获取文章时出错:", error);
+          setFetchError(error);
+          return;
+        }
+
+        const newArticles = data as ArticleItem[];
+        setArticles(newArticles);
+        setHasMore(newArticles.length === 20);
+        setFetchError(null);
+      } catch (err) {
+        console.error("loadArticles 中出错:", err);
+        setFetchError(err);
+      } finally {
+        setIsLoading(false);
+      }
     };
-  }, [fetchArticles]);
+
+    loadArticles();
+  }, [selectedTags, selectedSources, selectedTimeFilter]);
 
   // Handle saving prompt with toast notifications
   const handleSavePromptWithToast = async () => {
@@ -478,6 +519,10 @@ export default function Home() {
                   key={item.id}
                   className="border rounded-lg p-4 shadow hover:shadow-md transition-shadow overflow-auto"
                 >
+                  <div className="flex items-center gap-2 mb-2">
+                    <SourceIcon source={item.source} className="w-4 h-4" />
+                    <span className="text-sm text-gray-500">{item.source}</span>
+                  </div>
                   <a
                     href={item.url}
                     target="_blank"

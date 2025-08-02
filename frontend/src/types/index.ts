@@ -9,6 +9,7 @@ export interface ArticleItem {
   keywords: string[];
   summary: string | null;
   content: string | null;
+  source: string;
 }
 
 export interface TelegramUser {
