@@ -6,7 +6,6 @@ import { useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import { Loader, ChevronDown } from "lucide-react";
 import { SourceIcon } from "@/components/SourceIcon";
-import { useSourceCategories } from "@/hooks/useSourceCategories";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -64,13 +63,12 @@ export default function Home() {
   const {
     sources,
     selectedSources,
+    categorizedSources,
     isLoading: isSourcesLoading,
     isSaving: isSavingSources,
     toggleSource,
     saveUserSourcePreferences,
   } = useSources();
-
-  const categorizedSources = useSourceCategories(sources);
 
   const {
     customPrompt,
@@ -89,6 +87,7 @@ export default function Home() {
     { value: "7day", label: "7 Days" },
     { value: "1month", label: "1 Month" },
     { value: "3month", label: "3 Months" },
+    { value: "all", label: "All Time" },
   ];
 
   // Get date filter based on selected time filter
@@ -119,6 +118,8 @@ export default function Home() {
           now.getDate()
         );
         return threeMonthsAgo.toISOString();
+      case "all":
+        return null;
       default:
         return null;
     }

@@ -7,9 +7,52 @@ import { useSession } from "@/lib/auth-client";
 export function useTags() {
   const { data: session } = useSession();
   const searchParams = useSearchParams();
-  const [tags, setTags] = useState<string[]>([]);
+  // Define all tags at the top to avoid loading state
+  const ALL_TAGS = [
+    // AI相關
+    "AI",
+    "MachineLearning",
+    "DeepLearning",
+    "NLP",
+    "ComputerVision",
+    // 科技公司
+    "Google",
+    "Apple",
+    "Microsoft",
+    "Meta",
+    "OpenAI",
+    "Anthropic",
+    // 產業
+    "Tech",
+    "Finance",
+    "Healthcare",
+    "Education",
+    "Gaming",
+    // 事件類型
+    "Funding",
+    "IPO",
+    "Acquisition",
+    "ProductLaunch",
+    "Research",
+    // 產品/硬體
+    "Robot",
+    "Robotics",
+    "Hardware",
+    "VR",
+    "AR",
+    "Metaverse",
+    "IoT",
+    "Smartphone",
+    "Chip",
+    "Semiconductor",
+    // 分類
+    "Business",
+    "Other",
+  ];
+
+  const [tags] = useState<string[]>(ALL_TAGS);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   // Get selected tags from URL
@@ -23,56 +66,6 @@ export function useTags() {
     setSelectedTags(getSelectedTags());
   }, [getSelectedTags]);
 
-  // Fetch all tags from API
-  useEffect(() => {
-    let isMounted = true;
-    const tags = [
-      // AI相關
-      "AI",
-      "MachineLearning",
-      "DeepLearning",
-      "NLP",
-      "ComputerVision",
-      // 科技公司
-      "Google",
-      "Apple",
-      "Microsoft",
-      "Meta",
-      "OpenAI",
-      "Anthropic",
-      // 產業
-      "Tech",
-      "Finance",
-      "Healthcare",
-      "Education",
-      "Gaming",
-      // 事件類型
-      "Funding",
-      "IPO",
-      "Acquisition",
-      "ProductLaunch",
-      "Research",
-      // 產品/硬體
-      "Robot",
-      "Robotics",
-      "Hardware",
-      "VR",
-      "AR",
-      "Metaverse",
-      "IoT",
-      "Smartphone",
-      "Chip",
-      "Semiconductor",
-      // 分類
-      "Business",
-      "Other",
-    ];
-    setTags(tags);
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
 
   // Fetch user preferences from API
   useEffect(() => {

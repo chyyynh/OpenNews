@@ -1,20 +1,52 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
+
+const SOURCE_CATEGORIES = {
+  "AI Firm": [
+    "OpenAI",
+    "Google Deepmind",
+    "Google Research",
+    "Anthropic Research",
+  ],
+  News: ["CNBC", "Techcrunch"],
+  Papers: ["arXiv cs.LG", "arXiv cs.AI", "ACM TiiS"],
+  Community: [
+    "Huggingface",
+    "Hacker News AI",
+    "Hacker News Show HN",
+    "Product Hunt - AI",
+  ],
+  Application: ["Browser Company", "Perplexity"],
+};
 
 export function useSources() {
   const { data: session } = useSession();
 
   const searchParams = useSearchParams();
-  const [sources, setSources] = useState<string[]>([
+
+  // Define all sources at the top to avoid inconsistency
+  const ALL_SOURCES = [
     "OpenAI",
+    "Anthropic Research",
+    "Google Deepmind",
+    "Google Research",
     "CNBC",
+    "Techcrunch",
     "arXiv cs.LG",
     "arXiv cs.AI",
-    "Google Deepmind",
-  ]);
+    "ACM TiiS",
+    "Huggingface",
+    "Hacker News AI",
+    "Hacker News Show HN",
+    "Product Hunt - AI",
+    "Browser Company",
+    "Perplexity",
+  ];
+
+  const [sources] = useState<string[]>(ALL_SOURCES);
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -30,25 +62,8 @@ export function useSources() {
     setSelectedSources(getSelectedSources());
   }, [getSelectedSources]);
 
-  // Set hardcoded available sources
+  // Initialize loading state
   useEffect(() => {
-    const hardcodedSources = [
-      "OpenAI",
-      "Anthropic",
-      "Google Deepmind",
-      "Google Research",
-      "CNBC",
-      "Techcrunch",
-      "arXiv cs.LG",
-      "arXiv cs.AI",
-      "Hacker News AI",
-      "Hacker News Show HN",
-      "Product Hunt - AI",
-      "Browser Company",
-      "Perplexity",
-    ];
-
-    setSources(hardcodedSources);
     setIsLoading(false);
   }, []);
 
@@ -117,9 +132,42 @@ export function useSources() {
     }
   };
 
+  // Categorize sources
+  const categorizedSources = useMemo(() => {
+    const categorized: { [key: string]: string[] } = {};
+    const uncategorized: string[] = [];
+
+    sources.forEach((source) => {
+      let found = false;
+      for (const [category, categoryItems] of Object.entries(
+        SOURCE_CATEGORIES
+      )) {
+        if (categoryItems.includes(source)) {
+          if (!categorized[category]) {
+            categorized[category] = [];
+          }
+          categorized[category].push(source);
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        uncategorized.push(source);
+      }
+    });
+
+    // Add uncategorized sources if any
+    if (uncategorized.length > 0) {
+      categorized["Others"] = uncategorized;
+    }
+
+    return categorized;
+  }, [sources]);
+
   return {
     sources,
     selectedSources,
+    categorizedSources,
     isLoading,
     isSaving,
     toggleSource,

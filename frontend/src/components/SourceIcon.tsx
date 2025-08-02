@@ -10,6 +10,8 @@ import {
   siProducthunt,
   siArc,
   siPerplexity,
+  siHuggingface,
+  siAcm,
 } from "simple-icons";
 
 interface SourceIconProps {
@@ -23,16 +25,18 @@ export function SourceIcon({ source, className = "w-4 h-4" }: SourceIconProps) {
       openai: siOpenai,
       "google deepmind": siGooglegemini,
       "google research": siGoogle,
-      anthropic: siAnthropic,
+      "anthropic research": siAnthropic,
       cnbc: siNbc,
       techcrunch: siTechcrunch,
       "arxiv cs.lg": siArxiv,
       "arxiv cs.ai": siArxiv,
+      "acm tiis": siAcm,
       "hacker news ai": siYcombinator,
       "hacker news show hn": siYcombinator,
       "product hunt - ai": siProducthunt,
       "browser company": siArc,
       perplexity: siPerplexity,
+      huggingface: siHuggingface,
     };
 
     return iconMap[source.toLowerCase()] || null;

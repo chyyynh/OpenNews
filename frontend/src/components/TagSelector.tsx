@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Loader } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Loader, Search } from "lucide-react";
 import type { AppUser } from "@/types";
 
 interface TagSelectorProps {
@@ -22,10 +23,17 @@ export function TagSelector({
   isSaving,
   saveUserPreferences,
 }: TagSelectorProps) {
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Filter tags based on search query
+  const filteredTags = tags.filter((tag) =>
+    tag.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   // 把選中的 tag 放前面，未選的放後面
   const orderedTags = [
-    ...selectedTags,
-    ...tags.filter((tag) => !selectedTags.includes(tag)),
+    ...selectedTags.filter((tag) => filteredTags.includes(tag)),
+    ...filteredTags.filter((tag) => !selectedTags.includes(tag)),
   ];
 
   return (
@@ -55,6 +63,18 @@ export function TagSelector({
           </Button>
         </div>
 
+        {/* Search Input */}
+        <div className="relative mb-4">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            type="text"
+            placeholder="Search tags..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+
         <div className="flex flex-wrap gap-2 max-h-[300px] overflow-y-auto">
           {orderedTags.map((tag) => (
             <Button
@@ -71,7 +91,12 @@ export function TagSelector({
               {tag}
             </Button>
           ))}
-          {tags.length === 0 && (
+          {orderedTags.length === 0 && searchQuery && (
+            <p className="text-sm text-gray-500">
+              沒有找到符合 "{searchQuery}" 的標籤。
+            </p>
+          )}
+          {tags.length === 0 && !searchQuery && (
             <p className="text-sm text-gray-500">未找到標籤。</p>
           )}
         </div>

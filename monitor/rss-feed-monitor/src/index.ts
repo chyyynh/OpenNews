@@ -44,9 +44,23 @@ async function processAndInsertArticle(supabase: any, env: Env, item: any, feed?
 
 	// Handle different date formats (RSS vs Atom)
 	const pubDate = item.pubDate || item.isoDate || item.published || item.updated || null;
-	// Handle different link formats (RSS vs Atom)
+	// Handle different link formats (RSS vs Atom vs arXiv)
 	let url;
-	if (typeof item.link === 'string') {
+	if (feed.name && feed.name.toLowerCase().includes('arxiv')) {
+		// arXiv feeds have special link handling
+		if (item.id) {
+			// arXiv ID format: http://arxiv.org/abs/2401.12345v1
+			url = item.id;
+		} else if (item.link && Array.isArray(item.link)) {
+			// arXiv can have multiple links, find the abs link
+			const absLink = item.link.find((l: any) => l['@_href']?.includes('/abs/'));
+			url = absLink ? absLink['@_href'] : item.link[0]['@_href'];
+		} else if (typeof item.link === 'string') {
+			url = item.link;
+		} else if (item.link?.['@_href']) {
+			url = item.link['@_href'];
+		}
+	} else if (typeof item.link === 'string') {
 		url = item.link;
 	} else if (item.link?.['@_href']) {
 		// Atom feed with XML attributes
@@ -73,8 +87,36 @@ async function processAndInsertArticle(supabase: any, env: Env, item: any, feed?
 
 	console.log(`[${feed.name}] Preparing insert data...`);
 
-	// For arXiv feeds, use description as summary
-	const summary = feed.name && feed.name.includes('arXiv') ? item.description || item.summary || null : null;
+	// For arXiv feeds, extract more detailed information
+	let summary = null;
+	let authors = null;
+	let arxiv_categories = null;
+	
+	if (feed.name && feed.name.toLowerCase().includes('arxiv')) {
+		summary = item.description || item.summary || null;
+		
+		// Extract authors from arXiv feed
+		if (item.author) {
+			if (Array.isArray(item.author)) {
+				authors = item.author.map((a: any) => a.name || a).join(', ');
+			} else if (typeof item.author === 'object' && item.author.name) {
+				authors = item.author.name;
+			} else if (typeof item.author === 'string') {
+				authors = item.author;
+			}
+		}
+		
+		// Extract arXiv categories
+		if (item.category) {
+			if (Array.isArray(item.category)) {
+				arxiv_categories = item.category.map((c: any) => c['@_term'] || c).join(', ');
+			} else if (typeof item.category === 'object' && item.category['@_term']) {
+				arxiv_categories = item.category['@_term'];
+			} else if (typeof item.category === 'string') {
+				arxiv_categories = item.category;
+			}
+		}
+	}
 
 	const insert = {
 		url: url,
@@ -87,7 +129,10 @@ async function processAndInsertArticle(supabase: any, env: Env, item: any, feed?
 		tokens: [], // Empty array for now, will be filled by separate cronjob
 		summary: '', // For arXiv: use description, others: null (filled by separate cronjob)
 		source_type: source_type || 'rss',
-		content: summary || null,
+		content: summary || crawled_content || null,
+		// Add arXiv-specific fields if available
+		...(authors && { authors }),
+		...(arxiv_categories && { arxiv_categories }),
 	};
 
 	console.log(`[${feed.name}] Inserting article into database...`);
@@ -155,8 +200,23 @@ export default {
 
 					const xml = await res.text();
 					const data = parser.parse(xml);
+					
+					// Enhanced logging for feed structure
+					console.log(`[${feed.name}] Parsing XML feed...`);
+					if (data?.rss?.channel) {
+						const channel = data.rss.channel;
+						console.log(`[${feed.name}] RSS channel found: ${channel.title || 'No title'}`);
+						console.log(`[${feed.name}] Items found: ${channel.item ? (Array.isArray(channel.item) ? channel.item.length : 1) : 0}`);
+					} else if (data?.feed) {
+						console.log(`[${feed.name}] Atom feed found: ${data.feed.title || 'No title'}`);
+						console.log(`[${feed.name}] Entries found: ${data.feed.entry ? (Array.isArray(data.feed.entry) ? data.feed.entry.length : 1) : 0}`);
+					} else if (data?.['rdf:RDF']) {
+						const rdf = data['rdf:RDF'];
+						console.log(`[${feed.name}] RDF feed found: ${rdf.channel?.title || 'No title'}`);
+						console.log(`[${feed.name}] Items found: ${rdf.item ? (Array.isArray(rdf.item) ? rdf.item.length : 1) : 0}`);
+					}
 
-					// Support multiple feed formats: RSS, Atom, etc.
+					// Support multiple feed formats: RSS, Atom, RDF, etc.
 					let items;
 					if (data?.rss?.channel?.item) {
 						// Standard RSS format
@@ -167,23 +227,57 @@ export default {
 					} else if (data?.channel?.item) {
 						// Alternative RSS format
 						items = data.channel.item;
+					} else if (data?.['rdf:RDF']?.item) {
+						// RDF/RSS 1.0 format
+						items = data['rdf:RDF'].item;
+					} else if (data?.rss?.channel) {
+						// RSS channel exists but no items - this is normal, not an error
+						console.log(`[${feed.name}] RSS channel found but no items available at this time`);
+						items = [];
+					} else if (data?.['rdf:RDF']?.channel) {
+						// RDF channel exists but no items - this is normal, not an error
+						console.log(`[${feed.name}] RDF channel found but no items available at this time`);
+						items = [];
 					} else {
-						console.error(`[${feed.name}] Invalid format - no items found`);
+						console.error(`[${feed.name}] Invalid format - no recognized feed structure found`);
 						console.log(`[${feed.name}] Feed structure:`, JSON.stringify(data, null, 2).substring(0, 500) + '...');
 						return;
 					}
 
-					if (!items || !Array.isArray(items)) {
-						console.error(`[${feed.name}] Items is not an array`);
+					// Handle case where items might not be an array (single item) or might be empty
+					if (!items) {
+						console.log(`[${feed.name}] No items found in feed`);
+						items = [];
+					} else if (!Array.isArray(items)) {
+						// Single item case - convert to array
+						items = [items];
+					}
+					
+					if (items.length === 0) {
+						console.log(`[${feed.name}] No items to process`);
+						// Still update the scraped_at timestamp even if no items
+						await supabase
+							.from('RssList')
+							.update({
+								scraped_at: new Date(),
+								url: feed.url,
+							})
+							.eq('id', feed.id);
 						return;
 					}
 
 					// Set different limits based on feed type
-					if (feed.name && !feed.name.toLowerCase().includes('arxiv')) {
-						// Only limit non-arXiv feeds to 5 items for frequent polling
-						if (items.length > 5) {
-							console.log(`[${feed.name}] Feed has ${items.length} items, limiting to first 5`);
-							items = items.slice(0, 5);
+					if (feed.name && feed.name.toLowerCase().includes('anthropic')) {
+						// Anthropic feeds are ordered oldest to newest, so take the last 30
+						if (items.length > 30) {
+							console.log(`[${feed.name}] Feed has ${items.length} items, limiting to last 30 (newest)`);
+							items = items.slice(-30);
+						}
+					} else if (feed.name && !feed.name.toLowerCase().includes('arxiv')) {
+						// Only limit non-arXiv feeds to 30 items for frequent polling
+						if (items.length > 30) {
+							console.log(`[${feed.name}] Feed has ${items.length} items, limiting to first 30`);
+							items = items.slice(0, 30);
 						}
 					} else if (feed.name && feed.name.toLowerCase().includes('arxiv')) {
 						console.log(`[${feed.name}] arXiv feed: processing all ${items.length} items`);
@@ -191,6 +285,16 @@ export default {
 
 					const urls = items
 						.map((item: any) => {
+							// Handle arXiv feeds specially
+							if (feed.name && feed.name.toLowerCase().includes('arxiv')) {
+								if (item.id) {
+									return item.id; // arXiv ID format
+								} else if (item.link && Array.isArray(item.link)) {
+									const absLink = item.link.find((l: any) => l['@_href']?.includes('/abs/'));
+									return absLink ? absLink['@_href'] : item.link[0]['@_href'];
+								}
+							}
+							
 							if (typeof item.link === 'string') {
 								return item.link;
 							} else if (item.link?.['@_href']) {
@@ -225,7 +329,16 @@ export default {
 					const existingUrls = new Set(existing.map((e: any) => e.url));
 					const newItems = items.filter((item: any) => {
 						let itemUrl;
-						if (typeof item.link === 'string') {
+						
+						// Handle arXiv feeds specially
+						if (feed.name && feed.name.toLowerCase().includes('arxiv')) {
+							if (item.id) {
+								itemUrl = item.id; // arXiv ID format
+							} else if (item.link && Array.isArray(item.link)) {
+								const absLink = item.link.find((l: any) => l['@_href']?.includes('/abs/'));
+								itemUrl = absLink ? absLink['@_href'] : item.link[0]['@_href'];
+							}
+						} else if (typeof item.link === 'string') {
 							itemUrl = item.link;
 						} else if (item.link?.['@_href']) {
 							itemUrl = item.link['@_href'];
