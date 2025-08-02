@@ -22,13 +22,15 @@ model RssList {
 model Articles {
   id             String   @id(map: "article_pkey") @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   url            String
-  title          String
+  title          String    // 英文標題 (預設)
+  title_cn       String?   // 中文標題
   source         String
   published_date DateTime @db.Timestamp(6)
   scraped_date   DateTime @db.Timestamp(6)
   keywords       String[]
   tags           String[]
-  summary        String?
+  summary        String?   // 英文摘要 (預設)
+  summary_cn     String?   // 中文摘要
   source_type    String   @default("rss")
   content        String?
   tokens         String[]

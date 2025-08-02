@@ -3,11 +3,13 @@ import type { PostgrestError } from "@supabase/supabase-js";
 export interface ArticleItem {
   id: number;
   title: string;
+  title_cn?: string | null;
   url: string;
   published_date: string;
   tags: string[];
   keywords: string[];
   summary: string | null;
+  summary_cn?: string | null;
   content: string | null;
   source: string;
 }

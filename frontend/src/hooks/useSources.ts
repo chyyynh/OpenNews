@@ -99,6 +99,34 @@ export function useSources() {
     );
   };
 
+  // Helper function to toggle all sources in a category
+  const toggleCategoryAll = (category: string) => {
+    const categoryItems = SOURCE_CATEGORIES[category as keyof typeof SOURCE_CATEGORIES] || [];
+    const allSelected = categoryItems.every((source) => selectedSources.includes(source));
+    
+    setSelectedSources((prev) => {
+      if (allSelected) {
+        // Remove all category items
+        return prev.filter((source) => !categoryItems.includes(source));
+      } else {
+        // Add all category items (avoid duplicates)
+        const newSources = [...prev];
+        categoryItems.forEach((source) => {
+          if (!newSources.includes(source)) {
+            newSources.push(source);
+          }
+        });
+        return newSources;
+      }
+    });
+  };
+
+  // Helper function to check if all sources in a category are selected
+  const isCategoryAllSelected = (category: string) => {
+    const categoryItems = SOURCE_CATEGORIES[category as keyof typeof SOURCE_CATEGORIES] || [];
+    return categoryItems.length > 0 && categoryItems.every((source) => selectedSources.includes(source));
+  };
+
   // Save user source preferences via API
   const saveUserSourcePreferences = async () => {
     if (!session?.user?.id) {
@@ -171,6 +199,8 @@ export function useSources() {
     isLoading,
     isSaving,
     toggleSource,
+    toggleCategoryAll,
+    isCategoryAllSelected,
     saveUserSourcePreferences,
   };
 }
