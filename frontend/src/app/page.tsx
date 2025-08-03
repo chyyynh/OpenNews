@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { Loader, ChevronDown } from "lucide-react";
 import { Converter } from "opencc-js";
@@ -48,15 +48,17 @@ export default function Home() {
   // Use Better Auth session
   const { data: session } = useSession();
 
-  // Convert Better Auth user to AppUser format
-  const user: AppUser | null = session?.user
-    ? {
-        id: session.user.id,
-        name: session.user.name,
-        email: session.user.email,
-        image: session.user.image || undefined,
-      }
-    : null;
+  // Convert Better Auth user to AppUser format (memoized to prevent re-creation)
+  const user: AppUser | null = useMemo(() => {
+    if (!session?.user) return null;
+    
+    return {
+      id: session.user.id,
+      name: session.user.name,
+      email: session.user.email,
+      image: session.user.image || undefined,
+    };
+  }, [session?.user?.id, session?.user?.name, session?.user?.email, session?.user?.image]);
 
   // Use custom hooks
   const {
@@ -91,6 +93,13 @@ export default function Home() {
 
   const searchParams = useSearchParams();
 
+  // Stable reference for current filter values (moved up to avoid hoisting issues)
+  const currentFilters = useMemo(() => ({
+    tags: selectedTags,
+    sources: selectedSources,
+    timeFilter: selectedTimeFilter
+  }), [selectedTags, selectedSources, selectedTimeFilter]);
+
   // Time filter options
   const timeFilterOptions = [
     { value: "today", label: "Today" },
@@ -108,17 +117,17 @@ export default function Home() {
   ];
 
   // Convert text based on selected language (only for Chinese text)
-  const convertText = (text: string) => {
+  const convertText = useCallback((text: string) => {
     // Only convert if switching to simplified Chinese
     if (selectedLanguage === "zh-CN") {
       return converterToSimplified(text);
     }
     // For English and Traditional Chinese, return original text
     return text;
-  };
+  }, [selectedLanguage, converterToSimplified]);
 
   // Get article title based on selected language
-  const getArticleTitle = (item: ArticleItem) => {
+  const getArticleTitle = useCallback((item: ArticleItem) => {
     if (selectedLanguage === "en") {
       return item.title; // English title
     } else if (selectedLanguage === "zh-CN") {
@@ -126,10 +135,10 @@ export default function Home() {
     } else {
       return item.title_cn || item.title; // Traditional Chinese
     }
-  };
+  }, [selectedLanguage, convertText]);
 
   // Get article summary based on selected language
-  const getArticleSummary = (item: ArticleItem) => {
+  const getArticleSummary = useCallback((item: ArticleItem) => {
     if (selectedLanguage === "en") {
       return item.summary || "";
     } else if (selectedLanguage === "zh-CN") {
@@ -137,7 +146,7 @@ export default function Home() {
     } else {
       return item.summary_cn || item.summary || "";
     }
-  };
+  }, [selectedLanguage, convertText]);
 
   // Get date filter based on selected time filter
   const getDateFilter = (timeFilter: string) => {
@@ -284,15 +293,15 @@ export default function Home() {
             )
             .order("published_date", { ascending: false });
 
-          if (selectedTags.length > 0) {
-            query = query.overlaps("tags", selectedTags);
+          if (currentFilters.tags.length > 0) {
+            query = query.overlaps("tags", currentFilters.tags);
           }
 
-          if (selectedSources.length > 0) {
-            query = query.in("source", selectedSources);
+          if (currentFilters.sources.length > 0) {
+            query = query.in("source", currentFilters.sources);
           }
 
-          const dateFilter = getDateFilter(selectedTimeFilter);
+          const dateFilter = getDateFilter(currentFilters.timeFilter);
           if (dateFilter) {
             query = query.gte("published_date", dateFilter);
           }
@@ -331,63 +340,76 @@ export default function Home() {
     isLoadingMore,
     hasMore,
     articles.length,
-    selectedTags,
-    selectedSources,
-    selectedTimeFilter,
+    currentFilters,
   ]);
+
+  // Track previous filters to prevent unnecessary reloads
+  const [previousFilters, setPreviousFilters] = useState(currentFilters);
+  const [hasInitialLoad, setHasInitialLoad] = useState(false);
 
   // Initial fetch on mount and when dependencies change
   useEffect(() => {
-    const loadArticles = async () => {
-      setIsLoading(true);
-      setHasMore(true);
-
-      try {
-        let query = supabase
-          .from("articles")
-          .select(
-            "id, title, title_cn, url, published_date, tags, keywords, summary, summary_cn, content, source"
-          )
-          .order("published_date", { ascending: false });
-
-        if (selectedTags.length > 0) {
-          query = query.overlaps("tags", selectedTags);
+    // Skip if filters haven't actually changed (prevents login-triggered reload)
+    const filtersChanged = 
+      JSON.stringify(previousFilters) !== JSON.stringify(currentFilters);
+    
+    if (!hasInitialLoad || filtersChanged) {
+      const loadArticles = async () => {
+        // Only show loading on initial load or actual filter changes
+        if (!hasInitialLoad) {
+          setIsLoading(true);
         }
+        setHasMore(true);
 
-        if (selectedSources.length > 0) {
-          query = query.in("source", selectedSources);
+        try {
+          let query = supabase
+            .from("articles")
+            .select(
+              "id, title, title_cn, url, published_date, tags, keywords, summary, summary_cn, content, source"
+            )
+            .order("published_date", { ascending: false });
+
+          if (currentFilters.tags.length > 0) {
+            query = query.overlaps("tags", currentFilters.tags);
+          }
+
+          if (currentFilters.sources.length > 0) {
+            query = query.in("source", currentFilters.sources);
+          }
+
+          // Add time filter
+          const dateFilter = getDateFilter(currentFilters.timeFilter);
+          if (dateFilter) {
+            query = query.gte("published_date", dateFilter);
+          }
+
+          query = query.range(0, 19); // Load 20 items at a time
+
+          const { data, error } = await query;
+
+          if (error) {
+            console.error("获取文章时出错:", error);
+            setFetchError(error);
+            return;
+          }
+
+          const newArticles = data as ArticleItem[];
+          setArticles(newArticles);
+          setHasMore(newArticles.length === 20);
+          setFetchError(null);
+          setPreviousFilters(currentFilters);
+          setHasInitialLoad(true);
+        } catch (err) {
+          console.error("loadArticles 中出错:", err);
+          setFetchError(err);
+        } finally {
+          setIsLoading(false);
         }
+      };
 
-        // Add time filter
-        const dateFilter = getDateFilter(selectedTimeFilter);
-        if (dateFilter) {
-          query = query.gte("published_date", dateFilter);
-        }
-
-        query = query.range(0, 19); // Load 20 items at a time
-
-        const { data, error } = await query;
-
-        if (error) {
-          console.error("获取文章时出错:", error);
-          setFetchError(error);
-          return;
-        }
-
-        const newArticles = data as ArticleItem[];
-        setArticles(newArticles);
-        setHasMore(newArticles.length === 20);
-        setFetchError(null);
-      } catch (err) {
-        console.error("loadArticles 中出错:", err);
-        setFetchError(err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadArticles();
-  }, [selectedTags, selectedSources, selectedTimeFilter]);
+      loadArticles();
+    }
+  }, [currentFilters, previousFilters, hasInitialLoad]);
 
   // Handle saving prompt with toast notifications
   const handleSavePromptWithToast = async () => {

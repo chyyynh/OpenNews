@@ -55,7 +55,7 @@ async function callGeminiForAnalysis(article: Article, openrouterApiKey: string)
 		"tags": ["標籤1", "標籤2", "標籤3"],
 		"keywords": ["關鍵字1", "關鍵字2", "關鍵字3", "關鍵字4", "關鍵字5"],
 		"title_en": "英文標題翻譯",
-		"title_cn": "繁體中文標題",
+		"title_cn": "繁體中文標題翻譯",
 		"summary_en": "English summary in 1-2 sentences",
 		"summary_cn": "用繁體中文寫1-2句話的新聞摘要",
 		"category": "新聞分類"
@@ -63,7 +63,7 @@ async function callGeminiForAnalysis(article: Article, openrouterApiKey: string)
 
 		翻譯要求：
 		- title_en: 將標題翻譯成自然流暢的英文
-		- title_cn: 如果原標題是英文，翻譯成繁體中文；如果已是中文，保持原樣
+		- title_cn: 將標題翻譯成自然流暢的繁體中文
 		- summary_en: 用英文寫簡潔的摘要
 		- summary_cn: 用繁體中文寫簡潔的摘要
 
@@ -160,11 +160,11 @@ async function callGeminiForAnalysis(article: Article, openrouterApiKey: string)
 }
 
 async function processUntaggedArticles(supabase: any, env: Env): Promise<void> {
-	// First, let's check what articles exist in the timeframe
-	const timeframe = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
-	console.log(`Looking for articles since: ${timeframe}`);
+	// Process articles from the last 7 days
+	const timeframe = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+	console.log(`Processing articles since: ${timeframe}`);
 
-	// Fetch all recent articles first to debug
+	// Fetch all articles first to debug
 	const { data: allArticles, error: allError } = await supabase
 		.from('articles')
 		.select('id, title, title_cn, tags, keywords, scraped_date, published_date')
@@ -177,7 +177,7 @@ async function processUntaggedArticles(supabase: any, env: Env): Promise<void> {
 		return;
 	}
 
-	console.log(`Total articles in timeframe: ${allArticles?.length || 0}`);
+	console.log(`Sample articles in last 7 days: ${allArticles?.length || 0}`);
 	if (allArticles && allArticles.length > 0) {
 		allArticles.forEach((article) => {
 			console.log(
@@ -186,13 +186,13 @@ async function processUntaggedArticles(supabase: any, env: Env): Promise<void> {
 		});
 	}
 
-	// Now fetch articles that need processing
+	// Now fetch articles that need processing (last 7 days)
 	const { data: articles, error } = await supabase
 		.from('articles')
 		.select('id, title, title_cn, summary, summary_cn, content, url, source, published_date, tags, keywords, scraped_date')
 		.gte('scraped_date', timeframe)
 		.order('published_date', { ascending: false })
-		.limit(100);
+		.limit(150);
 
 	if (error) {
 		console.error('Error fetching untagged articles:', error);
@@ -204,23 +204,25 @@ async function processUntaggedArticles(supabase: any, env: Env): Promise<void> {
 		return;
 	}
 
-	// Filter articles that actually need processing (null, empty, or very short arrays)
+	// Filter articles that actually need processing
 	const articlesToProcess = articles.filter((article) => {
 		const needsTags = !article.tags || article.tags.length === 0;
 		const needsKeywords = !article.keywords || article.keywords.length === 0;
-		const needsTranslation = !article.title_cn; // Check if missing Chinese title
-		const shouldProcess = needsTags || needsKeywords || needsTranslation;
+		const needsTitleCn = !article.title_cn;
+		const needsSummaryCn = !article.summary_cn;
+		const needsSummary = !article.summary;
+		const shouldProcess = needsTags || needsKeywords || needsTitleCn || needsSummaryCn || needsSummary;
 
 		// Debug logging for filtering
 		if (!shouldProcess) {
 			console.log(
 				`⏭️  Skipping article ${article.id}: already has tags=[${article.tags?.join(',') || 'null'}] keywords=[${
 					article.keywords?.join(',') || 'null'
-				}] title_cn=[${article.title_cn || 'null'}]`
+				}] title_cn=[${article.title_cn || 'null'}] summary=[${article.summary ? 'exists' : 'null'}] summary_cn=[${article.summary_cn ? 'exists' : 'null'}]`
 			);
 		} else {
 			console.log(
-				`🔄 Will process article ${article.id}: needs tags=${needsTags}, keywords=${needsKeywords}, translation=${needsTranslation}`
+				`🔄 Will process article ${article.id}: needs tags=${needsTags}, keywords=${needsKeywords}, title_cn=${needsTitleCn}, summary=${needsSummary}, summary_cn=${needsSummaryCn}`
 			);
 		}
 
@@ -261,10 +263,17 @@ async function processUntaggedArticles(supabase: any, env: Env): Promise<void> {
 
 			// Update translation fields if needed
 			if (!article.title_cn) {
-				updateData.title = analysis.title_en || article.title; // Use English title as default
 				updateData.title_cn = analysis.title_cn;
+			}
+			if (!article.summary) {
 				updateData.summary = analysis.summary_en; // English summary
+			}
+			if (!article.summary_cn) {
 				updateData.summary_cn = analysis.summary_cn; // Chinese summary
+			}
+			// Always update title to English if we have a translation
+			if (analysis.title_en && (!article.title_cn || !article.summary || !article.summary_cn)) {
+				updateData.title = analysis.title_en;
 			}
 
 			const { error: updateError } = await supabase.from('articles').update(updateData).eq('id', article.id);
@@ -297,7 +306,7 @@ async function processUntaggedArticles(supabase: any, env: Env): Promise<void> {
 	}
 
 	console.log(`\n📊 Processing Summary:`);
-	console.log(`   Total articles in timeframe: ${articles.length}`);
+	console.log(`   Total articles in last 7 days: ${articles.length}`);
 	console.log(`   Articles needing processing: ${articlesToProcess.length}`);
 	console.log(`   Successfully processed: ${processedCount}`);
 	console.log(`   Errors: ${errorCount}`);

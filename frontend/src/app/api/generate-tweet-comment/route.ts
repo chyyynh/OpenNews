@@ -51,7 +51,7 @@ export async function POST(request: Request) {
         Authorization: `Bearer ${OPENROUTER_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "deepseek/deepseek-chat",
+        model: "google/gemini-2.5-flash-lite",
         messages: [
           {
             role: "user",

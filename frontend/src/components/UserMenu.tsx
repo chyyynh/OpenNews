@@ -1,6 +1,7 @@
 "use client";
 
 import { LogOut } from "lucide-react";
+import { useCallback, memo } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -17,8 +18,8 @@ interface UserMenuProps {
   user: User;
 }
 
-export function UserMenu({ user }: UserMenuProps) {
-  const handleSignOut = async () => {
+export const UserMenu = memo(function UserMenu({ user }: UserMenuProps) {
+  const handleSignOut = useCallback(async () => {
     try {
       await signOut();
       toast.success("已成功登出");
@@ -26,7 +27,7 @@ export function UserMenu({ user }: UserMenuProps) {
       console.error("Sign out error:", error);
       toast.error("登出失敗，請重試");
     }
-  };
+  }, []);
 
   return (
     <DropdownMenu>
@@ -60,4 +61,4 @@ export function UserMenu({ user }: UserMenuProps) {
       </DropdownMenuContent>
     </DropdownMenu>
   );
-}
+});
