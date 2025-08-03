@@ -21,15 +21,15 @@ export default function SignIn() {
   const router = useRouter();
 
   return (
-    <Card className="max-w-md">
-      <CardHeader>
-        <CardTitle className="text-lg md:text-xl">登入</CardTitle>
-        <CardDescription className="text-xs md:text-sm">
+    <Card className="w-full max-w-md shadow-lg">
+      <CardHeader className="pb-2 lg:pb-6">
+        <CardTitle className="text-lg lg:text-2xl">登入</CardTitle>
+        <CardDescription className="text-xs lg:text-base">
           輸入您的 Email 以登入您的帳戶
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="grid gap-4">
+      <CardContent className="pt-0 lg:pt-2 px-4 lg:px-6">
+        <div className="grid gap-2 lg:gap-4">
           <div className="grid gap-2">
             <Label htmlFor="email">Email</Label>
             <Input

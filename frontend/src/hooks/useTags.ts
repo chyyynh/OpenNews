@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 
@@ -55,40 +55,38 @@ export function useTags() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Get selected tags from URL
-  const getSelectedTags = useCallback(() => {
-    const tagsParam = searchParams.get("tags") || "";
-    return tagsParam ? tagsParam.split(",") : [];
-  }, [searchParams]);
-
-  // Update selectedTags when searchParams change
+  // Combined effect to handle both URL params and user preferences
   useEffect(() => {
-    setSelectedTags(getSelectedTags());
-  }, [getSelectedTags]);
+    // Priority: URL params > User preferences
+    const tagsParam = searchParams.get("tags");
+    
+    if (tagsParam) {
+      // If URL has tags param, use it
+      const urlTags = tagsParam.split(",").filter(Boolean);
+      setSelectedTags(urlTags);
+    } else if (session?.user?.id) {
+      // If no URL params but user is logged in, fetch user preferences
+      async function fetchUserSelectedTags() {
+        try {
+          const res = await fetch(`/api/user/tags?user_id=${session?.user?.id}`);
+          if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
 
+          const data: { selected_tags?: string[] } = await res.json();
 
-  // Fetch user preferences from API
-  useEffect(() => {
-    if (!session?.user?.id) return;
-
-    async function fetchUserSelectedTags() {
-      try {
-        if (!session?.user?.id) return;
-        const res = await fetch(`/api/user/tags?user_id=${session.user.id}`);
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-
-        const data: { selected_tags?: string[] } = await res.json();
-
-        if (data.selected_tags) {
-          setSelectedTags(data.selected_tags);
+          if (data.selected_tags) {
+            setSelectedTags(data.selected_tags);
+          }
+        } catch (err) {
+          console.error("fetchUserSelectedTags 發生錯誤:", err);
         }
-      } catch (err) {
-        console.error("fetchUserSelectedTags 發生錯誤:", err);
       }
-    }
 
-    fetchUserSelectedTags();
-  }, [session?.user?.id]);
+      fetchUserSelectedTags();
+    } else {
+      // No URL params and no user, reset to empty
+      setSelectedTags([]);
+    }
+  }, [searchParams, session?.user?.id]);
 
   // Helper function to toggle tags
   const toggleTag = (tag: string) => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 
@@ -51,44 +51,41 @@ export function useSources() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Get selected sources from URL
-  const getSelectedSources = useCallback(() => {
-    const sourcesParam = searchParams.get("sources") || "";
-    return sourcesParam ? sourcesParam.split(",") : [];
-  }, [searchParams]);
-
-  // Update selectedSources when searchParams change
+  // Combined effect to handle both URL params and user preferences
   useEffect(() => {
-    setSelectedSources(getSelectedSources());
-  }, [getSelectedSources]);
+    // Priority: URL params > User preferences
+    const sourcesParam = searchParams.get("sources");
+    
+    if (sourcesParam) {
+      // If URL has sources param, use it
+      const urlSources = sourcesParam.split(",").filter(Boolean);
+      setSelectedSources(urlSources);
+    } else if (session?.user?.id) {
+      // If no URL params but user is logged in, fetch user preferences
+      async function fetchUserSelectedSources() {
+        try {
+          const res = await fetch(`/api/user/sources?user_id=${session?.user?.id}`);
+          if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
 
-  // Initialize loading state
-  useEffect(() => {
-    setIsLoading(false);
-  }, []);
+          const data: { selected_sources?: string[] } = await res.json();
 
-  // Fetch user preferences from API
-  useEffect(() => {
-    if (!session?.user?.id) return;
-
-    async function fetchUserSelectedSources() {
-      try {
-        if (!session?.user?.id) return;
-        const res = await fetch(`/api/user/sources?user_id=${session.user.id}`);
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-
-        const data: { selected_sources?: string[] } = await res.json();
-
-        if (data.selected_sources) {
-          setSelectedSources(data.selected_sources);
+          if (data.selected_sources) {
+            setSelectedSources(data.selected_sources);
+          }
+        } catch (err) {
+          console.error("fetchUserSelectedSources 發生錯誤:", err);
         }
-      } catch (err) {
-        console.error("fetchUserSelectedSources 發生錯誤:", err);
       }
-    }
 
-    fetchUserSelectedSources();
-  }, [session?.user?.id]);
+      fetchUserSelectedSources();
+    } else {
+      // No URL params and no user, reset to empty
+      setSelectedSources([]);
+    }
+    
+    // Initialize loading state
+    setIsLoading(false);
+  }, [searchParams, session?.user?.id]);
 
   // Helper function to toggle sources
   const toggleSource = (source: string) => {

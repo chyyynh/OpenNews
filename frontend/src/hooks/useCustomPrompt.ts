@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useSession } from "@/lib/auth-client";
 
 export function useCustomPrompt() {
@@ -20,7 +20,7 @@ export function useCustomPrompt() {
       try {
         if (!session?.user?.id) return;
         const res = await fetch(
-          `/api/user/customPrompt?user_id=${session.user.id}`
+          `/api/user/customPrompt?user_id=${session?.user?.id}`
         );
         if (!res.ok) {
           const errData = await res.json();
@@ -41,7 +41,7 @@ export function useCustomPrompt() {
   }, [session?.user?.id]);
 
   // 用 POST API 儲存 custom_prompt
-  const handleSavePrompt = useCallback(async () => {
+  const handleSavePrompt = async () => {
     if (!session?.user?.id) {
       return { success: false, message: "請先登入以保存提示詞" };
     }
@@ -57,7 +57,7 @@ export function useCustomPrompt() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          user_id: session.user.id,
+          user_id: session?.user?.id,
           custom_prompt: tempCustomPrompt,
         }),
       });
@@ -79,7 +79,7 @@ export function useCustomPrompt() {
     } finally {
       setIsSaving(false);
     }
-  }, [tempCustomPrompt, customPrompt, session?.user?.id]);
+  };
 
   return {
     customPrompt,

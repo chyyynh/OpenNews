@@ -22,15 +22,15 @@ export default function SignUp() {
   const router = useRouter();
 
   return (
-    <Card className="max-w-md">
-      <CardHeader>
-        <CardTitle className="text-lg md:text-xl">註冊</CardTitle>
-        <CardDescription className="text-xs md:text-sm">
+    <Card className="w-full max-w-md shadow-lg">
+      <CardHeader className="pb-2 lg:pb-6">
+        <CardTitle className="text-lg lg:text-2xl">註冊</CardTitle>
+        <CardDescription className="text-xs lg:text-base">
           建立新帳戶以開始使用我們的服務
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="grid gap-4">
+      <CardContent className="pt-0 lg:pt-2 px-4 lg:px-6">
+        <div className="grid gap-2 lg:gap-4">
           <div className="grid gap-2">
             <Label htmlFor="name">姓名</Label>
             <Input

@@ -39,56 +39,52 @@ interface OpenRouterResponse {
 	}>;
 }
 
-async function callGeminiForAnalysis(
-	article: Article,
-	openrouterApiKey: string
-): Promise<AIAnalysisResult> {
+async function callGeminiForAnalysis(article: Article, openrouterApiKey: string): Promise<AIAnalysisResult> {
 	console.log(`Analyzing article: ${article.title.substring(0, 80)}...`);
-	
+
 	const content = article.content || article.summary || article.title;
 	const prompt = `作為一個專業的新聞分析師和翻譯師，請分析以下新聞文章並提供結構化的分析結果，包含英文和中文版本。
+		文章資訊：
+		標題: ${article.title}
+		來源: ${article.source}
+		摘要: ${article.summary || article.summary_cn || '無摘要'}
+		內容: ${content.substring(0, 2000)}...
 
-文章資訊：
-標題: ${article.title}
-來源: ${article.source}
-摘要: ${article.summary || article.summary_cn || '無摘要'}
-內容: ${content.substring(0, 2000)}...
+		請以JSON格式回答，包含以下欄位：
+		{
+		"tags": ["標籤1", "標籤2", "標籤3"],
+		"keywords": ["關鍵字1", "關鍵字2", "關鍵字3", "關鍵字4", "關鍵字5"],
+		"title_en": "英文標題翻譯",
+		"title_cn": "繁體中文標題",
+		"summary_en": "English summary in 1-2 sentences",
+		"summary_cn": "用繁體中文寫1-2句話的新聞摘要",
+		"category": "新聞分類"
+		}
 
-請以JSON格式回答，包含以下欄位：
-{
-  "tags": ["標籤1", "標籤2", "標籤3"],
-  "keywords": ["關鍵字1", "關鍵字2", "關鍵字3", "關鍵字4", "關鍵字5"],
-  "title_en": "英文標題翻譯",
-  "title_cn": "繁體中文標題",
-  "summary_en": "English summary in 1-2 sentences",
-  "summary_cn": "用繁體中文寫1-2句話的新聞摘要",
-  "category": "新聞分類"
-}
+		翻譯要求：
+		- title_en: 將標題翻譯成自然流暢的英文
+		- title_cn: 如果原標題是英文，翻譯成繁體中文；如果已是中文，保持原樣
+		- summary_en: 用英文寫簡潔的摘要
+		- summary_cn: 用繁體中文寫簡潔的摘要
 
-翻譯要求：
-- title_en: 將標題翻譯成自然流暢的英文
-- title_cn: 如果原標題是英文，翻譯成繁體中文；如果已是中文，保持原樣
-- summary_en: 用英文寫簡潔的摘要
-- summary_cn: 用繁體中文寫簡潔的摘要
+		標籤規則：
+		- AI相關: AI, MachineLearning, DeepLearning, NLP, ComputerVision, LLM, GenerativeAI
+		- 產品相關: Coding, VR, AR, Robotics, Automation, SoftwareDevelopment, API
+		- 產業應用: Tech, Finance, Healthcare, Education, Gaming, Enterprise, Creative
+		- 事件類型: Funding, IPO, Acquisition, ProductLaunch, Research, Partnership
+		- 新聞性質: Review, Opinion, Analysis, Feature, Interview, Tutorial, Announcement
 
-標籤規則：
-- AI相關: AI, MachineLearning, DeepLearning, NLP, ComputerVision
-- 區塊鏈: Blockchain, Crypto, Bitcoin, Ethereum, DeFi, NFT
-- 科技公司: Google, Apple, Microsoft, Meta, OpenAI, Anthropic
-- 產業: Tech, Finance, Healthcare, Education, Gaming
-- 事件類型: Funding, IPO, Acquisition, ProductLaunch, Research
+		分類選項: AI, Tech, Finance, Research, Business, Other
 
-分類選項: AI, Blockchain, Tech, Finance, Research, Business, Other
-
-請只回傳JSON，不要其他文字。`;
+		請只回傳JSON，不要其他文字。`;
 
 	const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',
-			'Authorization': `Bearer ${openrouterApiKey}`,
+			Authorization: `Bearer ${openrouterApiKey}`,
 			'HTTP-Referer': 'https://opennews.tw',
-			'X-Title': 'OpenNews Article Analysis',
+			'X-Title': 'OpenNews Article Process',
 		},
 		body: JSON.stringify({
 			model: 'google/gemini-2.5-flash-lite',
@@ -99,8 +95,8 @@ async function callGeminiForAnalysis(
 						{
 							type: 'text',
 							text: prompt,
-						}
-					]
+						},
+					],
 				},
 			],
 			max_tokens: 800,
@@ -116,7 +112,7 @@ async function callGeminiForAnalysis(
 
 	const data: OpenRouterResponse = await response.json();
 	const rawContent = data.choices?.[0]?.message?.content || '';
-	
+
 	if (!rawContent || !rawContent.trim()) {
 		throw new Error('Empty response from AI');
 	}
@@ -129,9 +125,9 @@ async function callGeminiForAnalysis(
 		if (!jsonMatch) {
 			throw new Error('No JSON found in response');
 		}
-		
+
 		const result: AIAnalysisResult = JSON.parse(jsonMatch[0]);
-		
+
 		// Validate the result
 		if (!Array.isArray(result.tags) || !Array.isArray(result.keywords) || !result.summary_en || !result.summary_cn) {
 			throw new Error('Invalid response format');
@@ -144,12 +140,12 @@ async function callGeminiForAnalysis(
 			summary_cn: result.summary_cn,
 			title_en: result.title_en,
 			title_cn: result.title_cn,
-			category: result.category || 'Other'
+			category: result.category || 'Other',
 		};
 	} catch (parseError) {
 		console.error('Failed to parse AI response:', parseError);
 		console.error('Raw content:', rawContent);
-		
+
 		// Fallback: basic analysis
 		return {
 			tags: ['Other'],
@@ -158,7 +154,7 @@ async function callGeminiForAnalysis(
 			summary_cn: article.summary_cn || article.summary || article.title.substring(0, 100) + '...',
 			title_en: article.title,
 			title_cn: article.title_cn || article.title,
-			category: 'Other'
+			category: 'Other',
 		};
 	}
 }
@@ -167,7 +163,7 @@ async function processUntaggedArticles(supabase: any, env: Env): Promise<void> {
 	// First, let's check what articles exist in the timeframe
 	const timeframe = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
 	console.log(`Looking for articles since: ${timeframe}`);
-	
+
 	// Fetch all recent articles first to debug
 	const { data: allArticles, error: allError } = await supabase
 		.from('articles')
@@ -175,16 +171,18 @@ async function processUntaggedArticles(supabase: any, env: Env): Promise<void> {
 		.gte('scraped_date', timeframe)
 		.order('scraped_date', { ascending: false })
 		.limit(10);
-	
+
 	if (allError) {
 		console.error('Error fetching all articles:', allError);
 		return;
 	}
-	
+
 	console.log(`Total articles in timeframe: ${allArticles?.length || 0}`);
 	if (allArticles && allArticles.length > 0) {
-		allArticles.forEach(article => {
-			console.log(`  Article ${article.id}: tags=[${article.tags?.join(',') || 'null'}], keywords=[${article.keywords?.join(',') || 'null'}]`);
+		allArticles.forEach((article) => {
+			console.log(
+				`  Article ${article.id}: tags=[${article.tags?.join(',') || 'null'}], keywords=[${article.keywords?.join(',') || 'null'}]`
+			);
 		});
 	}
 
@@ -207,19 +205,25 @@ async function processUntaggedArticles(supabase: any, env: Env): Promise<void> {
 	}
 
 	// Filter articles that actually need processing (null, empty, or very short arrays)
-	const articlesToProcess = articles.filter(article => {
+	const articlesToProcess = articles.filter((article) => {
 		const needsTags = !article.tags || article.tags.length === 0;
 		const needsKeywords = !article.keywords || article.keywords.length === 0;
 		const needsTranslation = !article.title_cn; // Check if missing Chinese title
 		const shouldProcess = needsTags || needsKeywords || needsTranslation;
-		
+
 		// Debug logging for filtering
 		if (!shouldProcess) {
-			console.log(`⏭️  Skipping article ${article.id}: already has tags=[${article.tags?.join(',') || 'null'}] keywords=[${article.keywords?.join(',') || 'null'}] title_cn=[${article.title_cn || 'null'}]`);
+			console.log(
+				`⏭️  Skipping article ${article.id}: already has tags=[${article.tags?.join(',') || 'null'}] keywords=[${
+					article.keywords?.join(',') || 'null'
+				}] title_cn=[${article.title_cn || 'null'}]`
+			);
 		} else {
-			console.log(`🔄 Will process article ${article.id}: needs tags=${needsTags}, keywords=${needsKeywords}, translation=${needsTranslation}`);
+			console.log(
+				`🔄 Will process article ${article.id}: needs tags=${needsTags}, keywords=${needsKeywords}, translation=${needsTranslation}`
+			);
 		}
-		
+
 		return shouldProcess;
 	});
 
@@ -237,16 +241,16 @@ async function processUntaggedArticles(supabase: any, env: Env): Promise<void> {
 	for (const article of articlesToProcess) {
 		try {
 			console.log(`Processing article ${article.id}: ${article.title}`);
-			
+
 			const analysis = await callGeminiForAnalysis(article, env.OPENROUTER_API_KEY);
-			
+
 			// Update the article with AI analysis
 			// Combine tags and category, removing duplicates
 			const allTags = [...analysis.tags, analysis.category].filter((v, i, a) => a.indexOf(v) === i);
-			
+
 			// Prepare update object with only necessary fields
 			const updateData: any = {};
-			
+
 			// Update tags and keywords if needed
 			if (!article.tags || article.tags.length === 0) {
 				updateData.tags = allTags;
@@ -254,7 +258,7 @@ async function processUntaggedArticles(supabase: any, env: Env): Promise<void> {
 			if (!article.keywords || article.keywords.length === 0) {
 				updateData.keywords = analysis.keywords;
 			}
-			
+
 			// Update translation fields if needed
 			if (!article.title_cn) {
 				updateData.title = analysis.title_en || article.title; // Use English title as default
@@ -262,11 +266,8 @@ async function processUntaggedArticles(supabase: any, env: Env): Promise<void> {
 				updateData.summary = analysis.summary_en; // English summary
 				updateData.summary_cn = analysis.summary_cn; // Chinese summary
 			}
-			
-			const { error: updateError } = await supabase
-				.from('articles')
-				.update(updateData)
-				.eq('id', article.id);
+
+			const { error: updateError } = await supabase.from('articles').update(updateData).eq('id', article.id);
 
 			if (updateError) {
 				console.error(`Error updating article ${article.id}:`, updateError);
@@ -287,8 +288,7 @@ async function processUntaggedArticles(supabase: any, env: Env): Promise<void> {
 			}
 
 			// Add delay to avoid rate limiting
-			await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
-
+			await new Promise((resolve) => setTimeout(resolve, 2000)); // 2 second delay
 		} catch (error) {
 			console.error(`Error processing article ${article.id}:`, error);
 			errorCount++;
@@ -306,9 +306,9 @@ async function processUntaggedArticles(supabase: any, env: Env): Promise<void> {
 export default {
 	async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext): Promise<void> {
 		console.log('🤖 Article AI Analysis Worker started');
-		
+
 		const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
-		
+
 		try {
 			await processUntaggedArticles(supabase, env);
 			console.log('✅ Article AI Analysis Worker completed successfully');
@@ -321,22 +321,25 @@ export default {
 	// Optional: HTTP endpoint for manual triggering
 	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
 		const url = new URL(request.url);
-		
+
 		if (url.pathname === '/process' && request.method === 'POST') {
 			const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
-			
+
 			ctx.waitUntil(processUntaggedArticles(supabase, env));
-			
-			return new Response(JSON.stringify({ 
-				status: 'started', 
-				message: 'Article processing started' 
-			}), {
-				headers: { 'Content-Type': 'application/json' }
-			});
+
+			return new Response(
+				JSON.stringify({
+					status: 'started',
+					message: 'Article processing started',
+				}),
+				{
+					headers: { 'Content-Type': 'application/json' },
+				}
+			);
 		}
-		
+
 		return new Response('OpenNews Article AI Analysis Worker\n\nPOST /process - Manually trigger processing', {
-			headers: { 'Content-Type': 'text/plain' }
+			headers: { 'Content-Type': 'text/plain' },
 		});
 	},
 };
