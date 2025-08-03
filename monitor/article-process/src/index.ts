@@ -10,7 +10,9 @@ interface Env {
 interface Article {
 	id: string;
 	title: string;
+	title_cn?: string | null;
 	summary: string | null;
+	summary_cn?: string | null;
 	content: string | null;
 	url: string;
 	source: string;
@@ -22,7 +24,10 @@ interface Article {
 interface AIAnalysisResult {
 	tags: string[];
 	keywords: string[];
-	summary: string;
+	summary_en: string;
+	summary_cn: string;
+	title_en?: string;
+	title_cn?: string;
 	category: string;
 }
 
@@ -41,21 +46,30 @@ async function callGeminiForAnalysis(
 	console.log(`Analyzing article: ${article.title.substring(0, 80)}...`);
 	
 	const content = article.content || article.summary || article.title;
-	const prompt = `作為一個專業的新聞分析師，請分析以下新聞文章並提供結構化的分析結果。
+	const prompt = `作為一個專業的新聞分析師和翻譯師，請分析以下新聞文章並提供結構化的分析結果，包含英文和中文版本。
 
 文章資訊：
 標題: ${article.title}
 來源: ${article.source}
-摘要: ${article.summary || '無摘要'}
+摘要: ${article.summary || article.summary_cn || '無摘要'}
 內容: ${content.substring(0, 2000)}...
 
 請以JSON格式回答，包含以下欄位：
 {
   "tags": ["標籤1", "標籤2", "標籤3"],
   "keywords": ["關鍵字1", "關鍵字2", "關鍵字3", "關鍵字4", "關鍵字5"],
-  "summary": "用繁體中文寫1-2句話的新聞摘要",
+  "title_en": "英文標題翻譯",
+  "title_cn": "繁體中文標題",
+  "summary_en": "English summary in 1-2 sentences",
+  "summary_cn": "用繁體中文寫1-2句話的新聞摘要",
   "category": "新聞分類"
 }
+
+翻譯要求：
+- title_en: 將標題翻譯成自然流暢的英文
+- title_cn: 如果原標題是英文，翻譯成繁體中文；如果已是中文，保持原樣
+- summary_en: 用英文寫簡潔的摘要
+- summary_cn: 用繁體中文寫簡潔的摘要
 
 標籤規則：
 - AI相關: AI, MachineLearning, DeepLearning, NLP, ComputerVision
@@ -119,14 +133,17 @@ async function callGeminiForAnalysis(
 		const result: AIAnalysisResult = JSON.parse(jsonMatch[0]);
 		
 		// Validate the result
-		if (!Array.isArray(result.tags) || !Array.isArray(result.keywords) || !result.summary) {
+		if (!Array.isArray(result.tags) || !Array.isArray(result.keywords) || !result.summary_en || !result.summary_cn) {
 			throw new Error('Invalid response format');
 		}
 
 		return {
 			tags: result.tags.slice(0, 5), // Limit to 5 tags
 			keywords: result.keywords.slice(0, 8), // Limit to 8 keywords
-			summary: result.summary,
+			summary_en: result.summary_en,
+			summary_cn: result.summary_cn,
+			title_en: result.title_en,
+			title_cn: result.title_cn,
 			category: result.category || 'Other'
 		};
 	} catch (parseError) {
@@ -137,7 +154,10 @@ async function callGeminiForAnalysis(
 		return {
 			tags: ['Other'],
 			keywords: article.title.split(' ').slice(0, 5),
-			summary: article.summary || article.title.substring(0, 100) + '...',
+			summary_en: article.summary || article.title.substring(0, 100) + '...',
+			summary_cn: article.summary_cn || article.summary || article.title.substring(0, 100) + '...',
+			title_en: article.title,
+			title_cn: article.title_cn || article.title,
 			category: 'Other'
 		};
 	}
@@ -151,7 +171,7 @@ async function processUntaggedArticles(supabase: any, env: Env): Promise<void> {
 	// Fetch all recent articles first to debug
 	const { data: allArticles, error: allError } = await supabase
 		.from('articles')
-		.select('id, title, tags, keywords, scraped_date, published_date')
+		.select('id, title, title_cn, tags, keywords, scraped_date, published_date')
 		.gte('scraped_date', timeframe)
 		.order('scraped_date', { ascending: false })
 		.limit(10);
@@ -171,7 +191,7 @@ async function processUntaggedArticles(supabase: any, env: Env): Promise<void> {
 	// Now fetch articles that need processing
 	const { data: articles, error } = await supabase
 		.from('articles')
-		.select('id, title, summary, content, url, source, published_date, tags, keywords, scraped_date')
+		.select('id, title, title_cn, summary, summary_cn, content, url, source, published_date, tags, keywords, scraped_date')
 		.gte('scraped_date', timeframe)
 		.order('published_date', { ascending: false })
 		.limit(100);
@@ -190,11 +210,14 @@ async function processUntaggedArticles(supabase: any, env: Env): Promise<void> {
 	const articlesToProcess = articles.filter(article => {
 		const needsTags = !article.tags || article.tags.length === 0;
 		const needsKeywords = !article.keywords || article.keywords.length === 0;
-		const shouldProcess = needsTags || needsKeywords;
+		const needsTranslation = !article.title_cn; // Check if missing Chinese title
+		const shouldProcess = needsTags || needsKeywords || needsTranslation;
 		
 		// Debug logging for filtering
 		if (!shouldProcess) {
-			console.log(`⏭️  Skipping article ${article.id}: already has tags=[${article.tags?.join(',') || 'null'}] keywords=[${article.keywords?.join(',') || 'null'}]`);
+			console.log(`⏭️  Skipping article ${article.id}: already has tags=[${article.tags?.join(',') || 'null'}] keywords=[${article.keywords?.join(',') || 'null'}] title_cn=[${article.title_cn || 'null'}]`);
+		} else {
+			console.log(`🔄 Will process article ${article.id}: needs tags=${needsTags}, keywords=${needsKeywords}, translation=${needsTranslation}`);
 		}
 		
 		return shouldProcess;
@@ -221,13 +244,28 @@ async function processUntaggedArticles(supabase: any, env: Env): Promise<void> {
 			// Combine tags and category, removing duplicates
 			const allTags = [...analysis.tags, analysis.category].filter((v, i, a) => a.indexOf(v) === i);
 			
+			// Prepare update object with only necessary fields
+			const updateData: any = {};
+			
+			// Update tags and keywords if needed
+			if (!article.tags || article.tags.length === 0) {
+				updateData.tags = allTags;
+			}
+			if (!article.keywords || article.keywords.length === 0) {
+				updateData.keywords = analysis.keywords;
+			}
+			
+			// Update translation fields if needed
+			if (!article.title_cn) {
+				updateData.title = analysis.title_en || article.title; // Use English title as default
+				updateData.title_cn = analysis.title_cn;
+				updateData.summary = analysis.summary_en; // English summary
+				updateData.summary_cn = analysis.summary_cn; // Chinese summary
+			}
+			
 			const { error: updateError } = await supabase
 				.from('articles')
-				.update({
-					tags: allTags,
-					keywords: analysis.keywords,
-					summary: analysis.summary
-				})
+				.update(updateData)
 				.eq('id', article.id);
 
 			if (updateError) {
@@ -235,8 +273,15 @@ async function processUntaggedArticles(supabase: any, env: Env): Promise<void> {
 				errorCount++;
 			} else {
 				console.log(`✅ Successfully processed article ${article.id}`);
-				console.log(`   Tags: ${allTags.join(', ')}`);
-				console.log(`   Keywords: ${analysis.keywords.join(', ')}`);
+				console.log(`   Updated fields: ${Object.keys(updateData).join(', ')}`);
+				if (updateData.tags) console.log(`   Tags: ${updateData.tags.join(', ')}`);
+				if (updateData.keywords) console.log(`   Keywords: ${updateData.keywords.join(', ')}`);
+				if (updateData.title_cn) {
+					console.log(`   Title EN: ${analysis.title_en}`);
+					console.log(`   Title CN: ${analysis.title_cn}`);
+					console.log(`   Summary EN: ${analysis.summary_en}`);
+					console.log(`   Summary CN: ${analysis.summary_cn}`);
+				}
 				console.log(`   Category: ${analysis.category}`);
 				processedCount++;
 			}
