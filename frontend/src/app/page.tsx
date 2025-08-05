@@ -23,6 +23,8 @@ import { useSources } from "@/hooks/useSources";
 import { useCustomPrompt } from "@/hooks/useCustomPrompt";
 import { PromptEditor } from "@/components/PromptEditor";
 import { TagSelector } from "@/components/TagSelector";
+import { CollapsiblePromptEditor } from "@/components/CollapsiblePromptEditor";
+import { CollapsibleTagSelector } from "@/components/CollapsibleTagSelector";
 import { UserMenu } from "@/components/UserMenu";
 import { SendToTwitterButton } from "@/components/SendToTwitterButton";
 import { useSession } from "@/lib/auth-client";
@@ -51,14 +53,19 @@ export default function Home() {
   // Convert Better Auth user to AppUser format (memoized to prevent re-creation)
   const user: AppUser | null = useMemo(() => {
     if (!session?.user) return null;
-    
+
     return {
       id: session.user.id,
       name: session.user.name,
       email: session.user.email,
       image: session.user.image || undefined,
     };
-  }, [session?.user?.id, session?.user?.name, session?.user?.email, session?.user?.image]);
+  }, [
+    session?.user?.id,
+    session?.user?.name,
+    session?.user?.email,
+    session?.user?.image,
+  ]);
 
   // Use custom hooks
   const {
@@ -94,11 +101,14 @@ export default function Home() {
   const searchParams = useSearchParams();
 
   // Stable reference for current filter values (moved up to avoid hoisting issues)
-  const currentFilters = useMemo(() => ({
-    tags: selectedTags,
-    sources: selectedSources,
-    timeFilter: selectedTimeFilter
-  }), [selectedTags, selectedSources, selectedTimeFilter]);
+  const currentFilters = useMemo(
+    () => ({
+      tags: selectedTags,
+      sources: selectedSources,
+      timeFilter: selectedTimeFilter,
+    }),
+    [selectedTags, selectedSources, selectedTimeFilter]
+  );
 
   // Time filter options
   const timeFilterOptions = [
@@ -117,36 +127,45 @@ export default function Home() {
   ];
 
   // Convert text based on selected language (only for Chinese text)
-  const convertText = useCallback((text: string) => {
-    // Only convert if switching to simplified Chinese
-    if (selectedLanguage === "zh-CN") {
-      return converterToSimplified(text);
-    }
-    // For English and Traditional Chinese, return original text
-    return text;
-  }, [selectedLanguage, converterToSimplified]);
+  const convertText = useCallback(
+    (text: string) => {
+      // Only convert if switching to simplified Chinese
+      if (selectedLanguage === "zh-CN") {
+        return converterToSimplified(text);
+      }
+      // For English and Traditional Chinese, return original text
+      return text;
+    },
+    [selectedLanguage, converterToSimplified]
+  );
 
   // Get article title based on selected language
-  const getArticleTitle = useCallback((item: ArticleItem) => {
-    if (selectedLanguage === "en") {
-      return item.title; // English title
-    } else if (selectedLanguage === "zh-CN") {
-      return convertText(item.title_cn || item.title);
-    } else {
-      return item.title_cn || item.title; // Traditional Chinese
-    }
-  }, [selectedLanguage, convertText]);
+  const getArticleTitle = useCallback(
+    (item: ArticleItem) => {
+      if (selectedLanguage === "en") {
+        return item.title; // English title
+      } else if (selectedLanguage === "zh-CN") {
+        return convertText(item.title_cn || item.title);
+      } else {
+        return item.title_cn || item.title; // Traditional Chinese
+      }
+    },
+    [selectedLanguage, convertText]
+  );
 
   // Get article summary based on selected language
-  const getArticleSummary = useCallback((item: ArticleItem) => {
-    if (selectedLanguage === "en") {
-      return item.summary || "";
-    } else if (selectedLanguage === "zh-CN") {
-      return convertText(item.summary_cn || item.summary || "");
-    } else {
-      return item.summary_cn || item.summary || "";
-    }
-  }, [selectedLanguage, convertText]);
+  const getArticleSummary = useCallback(
+    (item: ArticleItem) => {
+      if (selectedLanguage === "en") {
+        return item.summary || "";
+      } else if (selectedLanguage === "zh-CN") {
+        return convertText(item.summary_cn || item.summary || "");
+      } else {
+        return item.summary_cn || item.summary || "";
+      }
+    },
+    [selectedLanguage, convertText]
+  );
 
   // Get date filter based on selected time filter
   const getDateFilter = (timeFilter: string) => {
@@ -336,12 +355,7 @@ export default function Home() {
       window.removeEventListener("scroll", handleScroll);
       clearTimeout(timeoutId);
     };
-  }, [
-    isLoadingMore,
-    hasMore,
-    articles.length,
-    currentFilters,
-  ]);
+  }, [isLoadingMore, hasMore, articles.length, currentFilters]);
 
   // Track previous filters to prevent unnecessary reloads
   const [previousFilters, setPreviousFilters] = useState(currentFilters);
@@ -350,9 +364,9 @@ export default function Home() {
   // Initial fetch on mount and when dependencies change
   useEffect(() => {
     // Skip if filters haven't actually changed (prevents login-triggered reload)
-    const filtersChanged = 
+    const filtersChanged =
       JSON.stringify(previousFilters) !== JSON.stringify(currentFilters);
-    
+
     if (!hasInitialLoad || filtersChanged) {
       const loadArticles = async () => {
         // Only show loading on initial load or actual filter changes
@@ -445,50 +459,108 @@ export default function Home() {
   };
 
   return (
-    <div className="container mx-auto p-4 sm:p-8 font-[family-name:var(--font-geist-sans)]">
-      <header className="mb-4 flex justify-between items-start">
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <h1 className="text-3xl font-bold text-center sm:text-left">
+    <div className="container mx-auto px-3 py-4 sm:p-8 font-[family-name:var(--font-geist-sans)]">
+      <header className="mb-4">
+        {/* Top Row - Title and Authentication */}
+        <div className="flex items-start justify-between mb-2">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl sm:text-3xl font-bold mb-1">
               {convertText("OpenNews Demo: AI Content Collection")}
             </h1>
             <a
               href="https://github.com/chyyynh"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-sm text-gray-500 hover:text-gray-700 transition-colors flex items-center gap-1 ml-4"
+              className="text-xs sm:text-sm text-gray-500 hover:text-gray-700 transition-colors flex items-center gap-1"
             >
               built by chyyynh
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+              <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
               </svg>
             </a>
           </div>
-          <h3 className="mb-2 flex justify-between items-center">
-            {selectedTags.length > 0 ? `${selectedTags.join(", ")}` : ""}
-          </h3>
+
+          {/* Top Right - Language Selector and Authentication */}
+          <div className="flex items-center gap-2 ml-4">
+            {/* Language Selector */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="flex items-center gap-1 text-sm">
+                  {
+                    languageOptions.find(
+                      (lang) => lang.value === selectedLanguage
+                    )?.label
+                  }
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuRadioGroup
+                  value={selectedLanguage}
+                  onValueChange={setSelectedLanguage}
+                >
+                  {languageOptions.map((option) => (
+                    <DropdownMenuRadioItem
+                      key={option.value}
+                      value={option.value}
+                    >
+                      {option.label}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Authentication (Desktop Only) */}
+            {session?.user ? (
+              <UserMenu user={session.user} />
+            ) : (
+              <div className="hidden sm:flex gap-2">
+                <Link href="/login">
+                  <Button variant="outline" size="sm" className="text-sm">
+                    {convertText("登入")}
+                  </Button>
+                </Link>
+                <Link href="/signup">
+                  <Button size="sm" className="text-sm">
+                    {convertText("註冊")}
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Language Selector and Authentication */}
-        <div className="flex items-center gap-4">
-          {/* Language Selector */}
+        {/* Bottom Row - Selected Tags */}
+        {selectedTags.length > 0 && (
+          <div className="text-sm text-gray-600 mt-2">
+            {selectedTags.join(", ")}
+          </div>
+        )}
+      </header>
+
+      {/* Time and Sources Filter - appears above news */}
+      <div className="mb-6">
+        {/* Mobile: Single row with horizontal scroll */}
+        <div className="flex sm:hidden gap-2 items-center overflow-x-auto pb-2 scrollbar-hide">
+          {/* Time Filter Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="flex items-center gap-2">
+              <Button variant="outline" size="sm" className="flex items-center gap-1 text-xs whitespace-nowrap flex-shrink-0">
                 {
-                  languageOptions.find(
-                    (lang) => lang.value === selectedLanguage
+                  timeFilterOptions.find(
+                    (option) => option.value === selectedTimeFilter
                   )?.label
                 }
-                <ChevronDown className="h-4 w-4" />
+                <ChevronDown className="h-3 w-3" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
               <DropdownMenuRadioGroup
-                value={selectedLanguage}
-                onValueChange={setSelectedLanguage}
+                value={selectedTimeFilter}
+                onValueChange={setSelectedTimeFilter}
               >
-                {languageOptions.map((option) => (
+                {timeFilterOptions.map((option) => (
                   <DropdownMenuRadioItem
                     key={option.value}
                     value={option.value}
@@ -500,29 +572,65 @@ export default function Home() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Authentication */}
-          {session?.user ? (
-            <UserMenu user={session.user} />
-          ) : (
-            <div className="flex gap-2">
-              <Link href="/login">
-                <Button variant="outline">{convertText("登入")}</Button>
-              </Link>
-              <Link href="/signup">
-                <Button>{convertText("註冊")}</Button>
-              </Link>
-            </div>
+          {/* Separator */}
+          <div className="w-px h-4 bg-gray-300 flex-shrink-0"></div>
+
+          {Object.entries(categorizedSources).map(
+            ([category, categoryItems]) => {
+              const selectedInCategory = categoryItems.filter((item) =>
+                selectedSources.includes(item)
+              );
+
+              return (
+                <DropdownMenu key={category}>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-1 text-xs whitespace-nowrap flex-shrink-0"
+                    >
+                      {selectedInCategory.length === 0
+                        ? category
+                        : selectedInCategory.length === 1
+                        ? selectedInCategory[0]
+                        : `${category} (${selectedInCategory.length})`}
+                      <ChevronDown className="h-3 w-3" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-48">
+                    <DropdownMenuCheckboxItem
+                      checked={isCategoryAllSelected(category)}
+                      onCheckedChange={() => toggleCategoryAll(category)}
+                      className="font-medium border-b border-gray-200 mb-1 pb-1"
+                    >
+                      All {category}
+                    </DropdownMenuCheckboxItem>
+                    {categoryItems.map((source) => (
+                      <DropdownMenuCheckboxItem
+                        key={source}
+                        checked={selectedSources.includes(source)}
+                        onCheckedChange={() =>
+                          toggleSource && toggleSource(source)
+                        }
+                        className="flex items-center gap-2"
+                      >
+                        <SourceIcon source={source} />
+                        <span>{source}</span>
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              );
+            }
           )}
         </div>
-      </header>
 
-      {/* Time and Sources Filter - appears above news */}
-      <div className="mb-6">
-        <div className="flex flex-wrap gap-2 items-center">
+        {/* Desktop: Multi-row with flex-wrap */}
+        <div className="hidden sm:flex flex-wrap gap-2 items-center">
           {/* Time Filter Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="flex items-center gap-2">
+              <Button variant="outline" size="sm" className="flex items-center gap-1 text-sm">
                 {
                   timeFilterOptions.find(
                     (option) => option.value === selectedTimeFilter
@@ -562,7 +670,8 @@ export default function Home() {
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant="outline"
-                      className="flex items-center gap-2"
+                      size="sm"
+                      className="flex items-center gap-1 text-sm"
                     >
                       {selectedInCategory.length === 0
                         ? category
@@ -601,9 +710,9 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Mobile: Prompt editor and tags at the top */}
-      <div className="md:hidden mb-6 space-y-4">
-        <PromptEditor
+      {/* Mobile: Collapsible prompt editor and tags */}
+      <div className="md:hidden mb-6 space-y-3">
+        <CollapsiblePromptEditor
           user={user}
           tempCustomPrompt={tempCustomPrompt}
           setTempCustomPrompt={setTempCustomPrompt}
@@ -613,8 +722,7 @@ export default function Home() {
           customPrompt={customPrompt}
         />
 
-        {/* Tags and Sources Selector */}
-        <TagSelector
+        <CollapsibleTagSelector
           user={user}
           tags={tags}
           selectedTags={selectedTags}
@@ -624,7 +732,7 @@ export default function Home() {
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8">
         {/* Left column (article list) */}
         <main className="md:col-span-2 flex flex-col gap-4">
           {isLoading && <p>{convertText("正在載入文章...")}</p>}
@@ -642,7 +750,7 @@ export default function Home() {
               {articles.map((item: ArticleItem) => (
                 <li
                   key={item.id}
-                  className="border rounded-lg p-4 shadow hover:shadow-md transition-shadow overflow-auto"
+                  className="border rounded-lg p-3 sm:p-4 shadow hover:shadow-md transition-shadow overflow-auto"
                 >
                   <div className="flex items-center gap-2 mb-2">
                     <SourceIcon source={item.source} className="w-4 h-4" />
@@ -654,7 +762,7 @@ export default function Home() {
                     rel="noopener noreferrer"
                     className="hover:underline"
                   >
-                    <h2 className="text-xl font-semibold mb-1">
+                    <h2 className="text-lg sm:text-xl font-semibold mb-1">
                       {getArticleTitle(item)}
                     </h2>
                   </a>
