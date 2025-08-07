@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { toast } from "sonner";
-import { Loader, ChevronDown } from "lucide-react";
+import { Loader, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { Converter } from "opencc-js";
 import { SourceIcon } from "@/components/SourceIcon";
 import {
@@ -26,6 +26,8 @@ import { TagSelector } from "@/components/TagSelector";
 import { CollapsiblePromptEditor } from "@/components/CollapsiblePromptEditor";
 import { CollapsibleTagSelector } from "@/components/CollapsibleTagSelector";
 import { RequestRSSDialog } from "@/components/RequestRSSDialog";
+import { CollapsibleSidebar } from "@/components/CollapsibleSidebar";
+import { KOLModeToggle } from "@/components/KOLModeToggle";
 import { UserMenu } from "@/components/UserMenu";
 import { SendToTwitterButton } from "@/components/SendToTwitterButton";
 import { useSession } from "@/lib/auth-client";
@@ -43,6 +45,10 @@ export default function Home() {
 
   // Language state
   const [selectedLanguage, setSelectedLanguage] = useState<string>("zh-TW");
+  
+  // KOL Mode state
+  const [isKolModeEnabled, setIsKolModeEnabled] = useState<boolean>(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
 
   // Initialize converters
   const converterToSimplified = Converter({ from: "tw", to: "cn" });
@@ -481,7 +487,7 @@ export default function Home() {
             </a>
           </div>
 
-          {/* Top Right - Language Selector and Authentication */}
+          {/* Top Right - Language Selector, KOL Mode, and Authentication */}
           <div className="flex items-center gap-2 ml-4">
             {/* Language Selector */}
             <DropdownMenu>
@@ -512,9 +518,29 @@ export default function Home() {
               </DropdownMenuContent>
             </DropdownMenu>
 
+            {/* KOL Mode Toggle - Only show for logged in users */}
+            {session?.user && (
+              <KOLModeToggle
+                isEnabled={isKolModeEnabled}
+                isCollapsed={isSidebarCollapsed}
+                onClick={() => {
+                  if (!isKolModeEnabled) {
+                    setIsKolModeEnabled(true);
+                  } else {
+                    // Just toggle sidebar collapse/expand when KOL Mode is enabled
+                    setIsSidebarCollapsed(!isSidebarCollapsed);
+                  }
+                }}
+              />
+            )}
+
             {/* Authentication (Desktop Only) */}
             {session?.user ? (
-              <UserMenu user={session.user} />
+              <UserMenu 
+                user={session.user} 
+                isKolModeEnabled={isKolModeEnabled}
+                onKolModeToggle={setIsKolModeEnabled}
+              />
             ) : (
               <div className="hidden sm:flex gap-2">
                 <Link href="/login">
@@ -739,9 +765,14 @@ export default function Home() {
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8">
-        {/* Left column (article list) */}
-        <main className="md:col-span-2 flex flex-col gap-4">
+      <div className="flex relative">
+
+        {/* Article list */}
+        <main className={`flex flex-col gap-4 min-w-0 transition-all duration-500 ease-in-out ${
+          isKolModeEnabled && !isSidebarCollapsed 
+            ? 'flex-[3] pr-8' 
+            : 'flex-1 pr-6'
+        }`}>
           {isLoading && <p>{convertText("正在載入文章...")}</p>}
 
           {/* Show error if fetchError exists */}
@@ -837,31 +868,67 @@ export default function Home() {
           )}
         </main>
 
-        {/* Right column (tag filter and prompt editor) - desktop only */}
-        <aside className="hidden md:block md:col-span-1 border-l md:pl-6 md:sticky md:top-8 md:self-start md:max-h-screen md:overflow-y-auto">
-          <div className="mb-4">
-            <PromptEditor
-              user={user}
-              tempCustomPrompt={tempCustomPrompt}
-              setTempCustomPrompt={setTempCustomPrompt}
-              isSaving={isSavingPrompt}
-              saveSuccess={saveSuccess}
-              handleSavePrompt={handleSavePromptWithToast}
-              customPrompt={customPrompt}
-            />
-          </div>
-          <hr className="mb-4"></hr>
+        {/* KOL Mode Collapsible Sidebar */}
+        {true && (
+          <div className={`relative transition-all duration-500 ease-in-out ${
+            !isKolModeEnabled 
+              ? 'w-px border-l border-gray-300 bg-gray-100'
+              : isSidebarCollapsed 
+                ? 'w-px border-l border-gray-300 bg-gray-100' 
+                : 'flex-[2]'
+          }`}>
+            {/* Sidebar Collapse/Expand Button - Always show when user is logged in */}
+            <div className="absolute top-4 left-0 z-50 -translate-x-1/2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (!isKolModeEnabled) {
+                      setIsKolModeEnabled(true);
+                      setIsSidebarCollapsed(false); // Ensure it expands when opening
+                    } else {
+                      setIsSidebarCollapsed(!isSidebarCollapsed);
+                    }
+                  }}
+                  className="p-2 h-8 w-8 transition-all duration-300 ease-in-out hover:bg-gray-100 rounded-full border-2 border-gray-200 bg-white"
+                  title={
+                    !isKolModeEnabled 
+                      ? "開啟 Dashboard"
+                      : isSidebarCollapsed 
+                        ? "展開 Dashboard" 
+                        : "收縮 Dashboard"
+                  }
+                >
+                  {!isKolModeEnabled ? (
+                    <ChevronLeft className="h-4 w-4" />
+                  ) : isSidebarCollapsed ? (
+                    <ChevronLeft className="h-4 w-4" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" />
+                  )}
+                </Button>
+            </div>
 
-          {/* Tags and Sources Selector */}
-          <TagSelector
-            user={user}
-            tags={tags}
-            selectedTags={selectedTags}
-            toggleTag={toggleTag}
-            isSaving={isSavingTags}
-            saveUserPreferences={handleSavePreferencesWithToast}
-          />
-        </aside>
+            {/* Dashboard Content - Only show when KOL Mode is enabled */}
+            {isKolModeEnabled && (
+              <CollapsibleSidebar
+                user={user}
+                tempCustomPrompt={tempCustomPrompt}
+                setTempCustomPrompt={setTempCustomPrompt}
+                isSavingPrompt={isSavingPrompt}
+                saveSuccess={saveSuccess}
+                handleSavePrompt={handleSavePromptWithToast}
+                customPrompt={customPrompt}
+                tags={tags}
+                selectedTags={selectedTags}
+                toggleTag={toggleTag}
+                isSavingTags={isSavingTags}
+                saveUserPreferences={handleSavePreferencesWithToast}
+                isCollapsed={isSidebarCollapsed}
+              />
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
