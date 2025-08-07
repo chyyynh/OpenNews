@@ -25,6 +25,7 @@ import { PromptEditor } from "@/components/PromptEditor";
 import { TagSelector } from "@/components/TagSelector";
 import { CollapsiblePromptEditor } from "@/components/CollapsiblePromptEditor";
 import { CollapsibleTagSelector } from "@/components/CollapsibleTagSelector";
+import { RequestRSSDialog } from "@/components/RequestRSSDialog";
 import { UserMenu } from "@/components/UserMenu";
 import { SendToTwitterButton } from "@/components/SendToTwitterButton";
 import { useSession } from "@/lib/auth-client";
@@ -623,6 +624,9 @@ export default function Home() {
               );
             }
           )}
+
+          {/* RSS Request Button */}
+          <RequestRSSDialog className="ml-2" />
         </div>
 
         {/* Desktop: Multi-row with flex-wrap */}
@@ -707,6 +711,9 @@ export default function Home() {
               );
             }
           )}
+
+          {/* RSS Request Button */}
+          <RequestRSSDialog className="ml-2" />
         </div>
       </div>
 
