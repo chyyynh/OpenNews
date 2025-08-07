@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Check if user is authenticated (basic check, you might want to add admin role check)
@@ -22,7 +22,7 @@ export async function PATCH(
     }
 
     const { status, adminNotes } = await request.json();
-    const { id } = params;
+    const { id } = await params;
 
     // Validate status
     if (!["pending", "approved", "rejected"].includes(status)) {
