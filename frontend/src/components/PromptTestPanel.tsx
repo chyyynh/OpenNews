@@ -17,20 +17,22 @@ interface PromptTestPanelProps {
     isLoading?: boolean;
     error?: string;
   } | null;
-  selectedArticle?: {
+  selectedArticles?: {
     id: string;
     title: string;
     summary?: string;
     content?: string;
-  } | null;
+  }[] | null;
   onClearResult?: () => void;
   onRetry?: () => void;
+  getArticleTitle?: (article: any) => string;
 }
 
 export function PromptTestPanel({
   result,
-  selectedArticle,
+  selectedArticles,
   onClearResult,
+  getArticleTitle,
 }: PromptTestPanelProps) {
   const [copied, setCopied] = useState(false);
 
@@ -47,8 +49,8 @@ export function PromptTestPanel({
     }
   };
 
-  // Show selected article even without test result
-  if (!result && !selectedArticle) {
+  // Show selected articles even without test result
+  if (!result && (!selectedArticles || selectedArticles.length === 0)) {
     return (
       <div className="mt-6 p-4 bg-gray-50 rounded-lg border">
         <div className="text-center text-gray-500 text-sm">
@@ -58,18 +60,10 @@ export function PromptTestPanel({
     );
   }
 
-  // Show selected article without test result
-  if (!result && selectedArticle) {
+  // Show selected articles without test result
+  if (!result && selectedArticles && selectedArticles.length > 0) {
     return (
       <div className="space-y-4">
-        {/* Selected Article Info */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-          <div className="text-xs text-blue-600 font-medium mb-1">已選中文章</div>
-          <div className="text-sm font-medium text-blue-900">
-            {selectedArticle.title}
-          </div>
-        </div>
-
         {/* Prompt hint */}
         <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
           <div className="text-sm text-gray-600 text-center">
@@ -123,15 +117,6 @@ export function PromptTestPanel({
         </div>
       </div>
 
-      {/* Article Info */}
-      {result.article && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-          <div className="text-xs text-blue-600 font-medium mb-1">測試文章</div>
-          <div className="text-sm font-medium text-blue-900 line-clamp-2">
-            {result.article.title}
-          </div>
-        </div>
-      )}
 
       {/* Result */}
       <div className="border border-gray-200 rounded-lg p-3 bg-white">

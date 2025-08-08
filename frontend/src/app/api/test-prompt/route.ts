@@ -7,12 +7,15 @@ export async function POST(request: NextRequest) {
   try {
     // Parse request body
     const body = await request.json();
-    const { article, prompt } = body;
+    const { article, articles, prompt } = body;
+
+    // Support both single article (legacy) and multiple articles
+    const articlesArray = articles || (article ? [article] : []);
 
     // Validate input
-    if (!article || !prompt) {
+    if (!articlesArray || articlesArray.length === 0 || !prompt) {
       return NextResponse.json(
-        { error: "Missing article or prompt" },
+        { error: "Missing articles or prompt" },
         { status: 400 }
       );
     }
@@ -25,20 +28,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Prepare article content
-    const articleContent = `
-標題: ${article.title}
+    // Prepare articles content
+    const articlesContent = articlesArray.map((article: any, index: number) => {
+      const articleNumber = articlesArray.length > 1 ? `文章 ${index + 1}:\n` : '';
+      return `${articleNumber}標題: ${article.title}
 ${article.summary ? `摘要: ${article.summary}` : ''}
-${article.content ? `內容: ${article.content.substring(0, 2000)}` : ''}
-網址: ${article.url}
-`.trim();
+${article.content ? `內容: ${article.content.substring(0, 1500)}` : ''}
+網址: ${article.url}`;
+    }).join('\n\n---\n\n');
 
-    // Combine prompt with article content
+    // Combine prompt with articles content
     const fullPrompt = `
 ${prompt}
 
-文章內容:
-${articleContent}
+${articlesArray.length > 1 ? '文章內容:' : '文章內容:'}
+${articlesContent}
 `.trim();
 
     // Call OpenRouter API with retry logic
@@ -89,7 +93,8 @@ ${articleContent}
           success: true,
           response: text,
           metadata: {
-            articleTitle: article.title,
+            articlesCount: articlesArray.length,
+            articleTitles: articlesArray.map((a: any) => a.title),
             promptUsed: prompt,
             timestamp: new Date().toISOString()
           }

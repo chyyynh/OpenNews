@@ -49,8 +49,8 @@ export default function Home() {
   const [isKolModeEnabled, setIsKolModeEnabled] = useState<boolean>(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
   
-  // Article selection state
-  const [selectedArticle, setSelectedArticle] = useState<ArticleItem | null>(null);
+  // Article selection state (changed to support multiple articles)
+  const [selectedArticles, setSelectedArticles] = useState<ArticleItem[]>([]);
   
   // Test result state
   const [testResult, setTestResult] = useState<{
@@ -378,16 +378,16 @@ export default function Home() {
     setTestResult(null);
   };
 
-  // Handle test prompt
-  const handleTestPrompt = async (article: ArticleItem, prompt: string) => {
+  // Handle test prompt (updated to support multiple articles)
+  const handleTestPrompt = async (articles: ArticleItem[], prompt: string) => {
     // Set initial loading state
     const initialResult = {
       prompt,
-      article: {
-        title: getArticleTitle(article),
-        summary: getArticleSummary(article),
-        content: article.content || undefined
-      },
+      article: articles.length > 0 ? {
+        title: articles.length === 1 ? getArticleTitle(articles[0]) : `${articles.length} 篇文章`,
+        summary: undefined,
+        content: undefined
+      } : { title: '', summary: undefined, content: undefined },
       response: '',
       isLoading: true
     };
@@ -395,19 +395,19 @@ export default function Home() {
     setTestResult(initialResult);
 
     try {
-      // Call API to test prompt
+      // Call API to test prompt with multiple articles
       const response = await fetch('/api/test-prompt', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          article: {
+          articles: articles.map(article => ({
             title: article.title,
             summary: article.summary,
             content: article.content,
             url: article.url
-          },
+          })),
           prompt: prompt.trim()
         })
       });
@@ -776,13 +776,23 @@ export default function Home() {
                 <li
                   key={item.id}
                   className={`border rounded-lg p-3 sm:p-4 shadow hover:shadow-md transition-all duration-200 overflow-auto cursor-pointer ${
-                    selectedArticle?.id === item.id 
+                    selectedArticles.some(selected => selected.id === item.id) 
                       ? 'border-blue-500 bg-blue-50' 
                       : 'hover:border-gray-400'
                   }`}
-                  onClick={() => {
-                    setSelectedArticle(item);
-                    // Clear test result when selecting new article
+                  onClick={(e) => {
+                    e.preventDefault();
+                    const isSelected = selectedArticles.some(selected => selected.id === item.id);
+                    
+                    if (isSelected) {
+                      // Remove from selection
+                      setSelectedArticles(prev => prev.filter(selected => selected.id !== item.id));
+                    } else {
+                      // Add to selection
+                      setSelectedArticles(prev => [...prev, item]);
+                    }
+                    
+                    // Clear test result when selection changes
                     if (testResult) {
                       setTestResult(null);
                     }
@@ -923,10 +933,11 @@ export default function Home() {
                 isSavingTags={isSavingTags}
                 saveUserPreferences={handleSavePreferencesWithToast}
                 isCollapsed={isSidebarCollapsed}
-                selectedArticle={selectedArticle}
+                selectedArticles={selectedArticles}
                 onTestPrompt={handleTestPrompt}
                 testResult={testResult}
                 onClearTestResult={handleClearTestResult}
+                getArticleTitle={getArticleTitle}
               />
             )}
           </div>

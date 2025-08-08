@@ -4,7 +4,8 @@ import { useState, useRef, useEffect } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader, Check, Tags, Search, X } from "lucide-react";
+import { Loader, Check, Tags, Search, X, ChevronDown, ChevronRight } from "lucide-react";
+import { SourceIcon } from "@/components/SourceIcon";
 import type { AppUser } from "@/types";
 
 interface PromptEditorProps {
@@ -22,8 +23,9 @@ interface PromptEditorProps {
   isSavingTags: boolean;
   saveUserPreferences: () => Promise<{ success: boolean; message: string }>;
   // Test functionality props
-  selectedArticle?: any;
-  onTestPrompt?: (article: any, prompt: string) => Promise<void>;
+  selectedArticles?: any[];
+  onTestPrompt?: (articles: any[], prompt: string) => Promise<void>;
+  getArticleTitle?: (article: any) => string;
 }
 
 export function PromptEditor({
@@ -39,8 +41,9 @@ export function PromptEditor({
   toggleTag,
   isSavingTags,
   saveUserPreferences,
-  selectedArticle,
+  selectedArticles,
   onTestPrompt,
+  getArticleTitle,
 }: PromptEditorProps) {
   const [showTagSelector, setShowTagSelector] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -48,6 +51,7 @@ export function PromptEditor({
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const [tagSaveSuccess, setTagSaveSuccess] = useState(false);
   const [isTestingPrompt, setIsTestingPrompt] = useState(false);
+  const [isArticlesCollapsed, setIsArticlesCollapsed] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -140,14 +144,14 @@ export function PromptEditor({
 
   // Handle test prompt with auto-save
   const handleTestPrompt = async () => {
-    if (!selectedArticle || !onTestPrompt || !tempCustomPrompt.trim()) return;
+    if (!selectedArticles || selectedArticles.length === 0 || !onTestPrompt || !tempCustomPrompt.trim()) return;
     
     setIsTestingPrompt(true);
     try {
       // First save the prompt
       await handleSavePrompt();
       // Then test the prompt
-      await onTestPrompt(selectedArticle, tempCustomPrompt);
+      await onTestPrompt(selectedArticles, tempCustomPrompt);
     } catch (error) {
       console.error('Test prompt error:', error);
     } finally {
@@ -157,6 +161,55 @@ export function PromptEditor({
   return (
     <div className="rounded-lg" ref={containerRef}>
       <h2 className="text-lg font-semibold mb-3">Custom Prompt</h2>
+      
+      {/* Selected Articles Status Bar */}
+      {selectedArticles && selectedArticles.length > 0 && (
+        <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          {selectedArticles.length === 1 ? (
+            <div className="flex items-start gap-2">
+              <SourceIcon source={selectedArticles[0].source} className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-blue-900 font-medium line-clamp-2 flex-1">
+                {getArticleTitle ? getArticleTitle(selectedArticles[0]) : selectedArticles[0].title}
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div 
+                className="flex items-center justify-between cursor-pointer mb-2"
+                onClick={() => setIsArticlesCollapsed(!isArticlesCollapsed)}
+              >
+                <div className="text-sm text-blue-900 font-medium">
+                  已選擇 {selectedArticles.length} 篇文章
+                </div>
+                {isArticlesCollapsed ? (
+                  <ChevronRight className="h-4 w-4 text-blue-700" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-blue-700" />
+                )}
+              </div>
+              
+              {!isArticlesCollapsed && (
+                <div className="space-y-1 max-h-32 overflow-y-auto">
+                  {selectedArticles.slice(0, 5).map((article, index) => (
+                    <div key={article.id || index} className="flex items-start gap-2">
+                      <SourceIcon source={article.source} className="w-3 h-3 flex-shrink-0 mt-0.5" />
+                      <div className="text-xs text-blue-800 line-clamp-1 flex-1">
+                        {getArticleTitle ? getArticleTitle(article) : article.title}
+                      </div>
+                    </div>
+                  ))}
+                  {selectedArticles.length > 5 && (
+                    <div className="text-xs text-blue-600">
+                      ... 還有 {selectedArticles.length - 5} 篇文章
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+      
       <div className="relative w-full">
         <Textarea
           placeholder="輸入自定義 Prompt，選擇文章後點擊測試按鈕查看 AI 回應..."
@@ -195,14 +248,14 @@ export function PromptEditor({
 
         {/* Test & Save Button (Combined) */}
         <Button
-          onClick={selectedArticle ? handleTestPrompt : handleSavePrompt}
+          onClick={(selectedArticles && selectedArticles.length > 0) ? handleTestPrompt : handleSavePrompt}
           disabled={isTestingPrompt || isSaving || !tempCustomPrompt.trim() || !user}
           className={`absolute bottom-2 right-2 h-8 px-3 text-xs transition-colors ${
             isTestingPrompt || isSaving || !tempCustomPrompt.trim() || !user
               ? "bg-gray-400 text-gray-600 cursor-not-allowed"
               : "bg-black text-white hover:bg-gray-800"
           }`}
-          title={selectedArticle ? "測試並保存 Prompt" : "保存 Prompt"}
+          title={(selectedArticles && selectedArticles.length > 0) ? "測試並保存 Prompt" : "保存 Prompt"}
         >
           {isTestingPrompt || isSaving ? (
             <>
@@ -214,7 +267,7 @@ export function PromptEditor({
               <Check className="mr-1 h-3 w-3" />
               已保存
             </>
-          ) : selectedArticle ? (
+          ) : (selectedArticles && selectedArticles.length > 0) ? (
             "測試"
           ) : (
             "保存"

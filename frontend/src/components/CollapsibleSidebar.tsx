@@ -22,8 +22,8 @@ interface CollapsibleSidebarProps {
   // External control
   isCollapsed?: boolean;
   // Test functionality props
-  selectedArticle?: any;
-  onTestPrompt?: (article: any, prompt: string) => Promise<void>;
+  selectedArticles?: any[];
+  onTestPrompt?: (articles: any[], prompt: string) => Promise<void>;
   testResult?: {
     prompt: string;
     article: {
@@ -36,6 +36,7 @@ interface CollapsibleSidebarProps {
     error?: string;
   } | null;
   onClearTestResult?: () => void;
+  getArticleTitle?: (article: any) => string;
 }
 
 export function CollapsibleSidebar({
@@ -52,17 +53,17 @@ export function CollapsibleSidebar({
   isSavingTags,
   saveUserPreferences,
   isCollapsed = false,
-  selectedArticle,
+  selectedArticles,
   onTestPrompt,
   testResult,
   onClearTestResult,
+  getArticleTitle,
 }: CollapsibleSidebarProps) {
-
   return (
-    <aside className="bg-white flex flex-col relative h-full w-full transition-all duration-500 ease-in-out border-l border-gray-200">
+    <aside className="bg-white flex flex-col relative h-full w-full transition-all duration-500 ease-in-out border-l border-gray-200 sticky top-8 self-start max-h-screen overflow-hidden">
       {/* Content - Only show when expanded */}
       {!isCollapsed && (
-        <div className="flex-1 overflow-y-auto p-4 pl-8 space-y-6">
+        <div className="pt-4 p-4 pl-8 space-y-6 overflow-y-auto flex-1">
           {/* Custom Prompt Editor */}
           <div>
             <PromptEditor
@@ -78,17 +79,19 @@ export function CollapsibleSidebar({
               toggleTag={toggleTag}
               isSavingTags={isSavingTags}
               saveUserPreferences={saveUserPreferences}
-              selectedArticle={selectedArticle}
+              selectedArticles={selectedArticles}
               onTestPrompt={onTestPrompt}
+              getArticleTitle={getArticleTitle}
             />
           </div>
 
           {/* Test Results Panel */}
           <div>
-            <PromptTestPanel 
+            <PromptTestPanel
               result={testResult}
-              selectedArticle={selectedArticle}
+              selectedArticles={selectedArticles}
               onClearResult={onClearTestResult}
+              getArticleTitle={getArticleTitle}
             />
           </div>
         </div>
