@@ -27,34 +27,34 @@ export function PromptEditor({
   return (
     <div className="rounded-lg p-4 md:p-0">
       <h2 className="text-lg font-semibold mb-3">Custom Prompt</h2>
-      <div className="grid w-full gap-3">
+      <div className="relative w-full">
         <Textarea
           placeholder="載入自定義提示詞..."
           value={tempCustomPrompt}
           onChange={(e) => setTempCustomPrompt(e.target.value)}
-          className="min-h-[120px]"
+          className="min-h-[80px] pr-20 resize-none"
         />
         <Button
           onClick={handleSavePrompt}
           disabled={isSaving || tempCustomPrompt === customPrompt || !user}
-          className="relative tg-button"
-          style={{
-            backgroundColor: "var(--tg-theme-button-color)",
-            color: "var(--tg-theme-button-text-color)",
-          }}
+          className={`absolute bottom-2 right-2 h-8 px-3 text-xs transition-colors ${
+            isSaving || tempCustomPrompt === customPrompt || !user
+              ? "bg-gray-400 text-gray-600 cursor-not-allowed"
+              : "bg-black text-white hover:bg-gray-800"
+          }`}
         >
           {isSaving ? (
             <>
-              <Loader className="mr-2 h-4 w-4 animate-spin" />
-              正在保存...
+              <Loader className="mr-1 h-3 w-3 animate-spin" />
+              保存中
             </>
           ) : saveSuccess ? (
             <>
-              <Check className="mr-2 h-4 w-4" />
+              <Check className="mr-1 h-3 w-3" />
               已保存
             </>
           ) : (
-            "保存提示詞"
+            "保存"
           )}
         </Button>
       </div>

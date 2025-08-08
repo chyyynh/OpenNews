@@ -51,12 +51,12 @@ async function processAndInsertArticle(supabase: any, env: Env, item: any, feed?
 		if (item.id) {
 			// arXiv ID format: http://arxiv.org/abs/2401.12345v1
 			url = item.id;
+		} else if (typeof item.link === 'string') {
+			url = item.link; // arXiv link is direct string
 		} else if (item.link && Array.isArray(item.link)) {
 			// arXiv can have multiple links, find the abs link
 			const absLink = item.link.find((l: any) => l['@_href']?.includes('/abs/'));
 			url = absLink ? absLink['@_href'] : item.link[0]['@_href'];
-		} else if (typeof item.link === 'string') {
-			url = item.link;
 		} else if (item.link?.['@_href']) {
 			url = item.link['@_href'];
 		}
@@ -87,16 +87,16 @@ async function processAndInsertArticle(supabase: any, env: Env, item: any, feed?
 
 	console.log(`[${feed.name}] Preparing insert data...`);
 
-	// For arXiv feeds, extract more detailed information
+	// For arXiv feeds, extract detailed information and store in content field
 	let summary = null;
-	let authors = null;
-	let arxiv_categories = null;
+	let contentExtensions = '';
 	
 	if (feed.name && feed.name.toLowerCase().includes('arxiv')) {
 		summary = item.description || item.summary || null;
 		
-		// Extract authors from arXiv feed
+		// Extract authors from arXiv feed and add to content
 		if (item.author) {
+			let authors = '';
 			if (Array.isArray(item.author)) {
 				authors = item.author.map((a: any) => a.name || a).join(', ');
 			} else if (typeof item.author === 'object' && item.author.name) {
@@ -104,16 +104,23 @@ async function processAndInsertArticle(supabase: any, env: Env, item: any, feed?
 			} else if (typeof item.author === 'string') {
 				authors = item.author;
 			}
+			if (authors) {
+				contentExtensions += `\n\nAuthors: ${authors}`;
+			}
 		}
 		
-		// Extract arXiv categories
+		// Extract arXiv categories and add to content
 		if (item.category) {
+			let arxiv_categories = '';
 			if (Array.isArray(item.category)) {
 				arxiv_categories = item.category.map((c: any) => c['@_term'] || c).join(', ');
 			} else if (typeof item.category === 'object' && item.category['@_term']) {
 				arxiv_categories = item.category['@_term'];
 			} else if (typeof item.category === 'string') {
 				arxiv_categories = item.category;
+			}
+			if (arxiv_categories) {
+				contentExtensions += `\n\nArXiv Categories: ${arxiv_categories}`;
 			}
 		}
 	}
@@ -129,10 +136,7 @@ async function processAndInsertArticle(supabase: any, env: Env, item: any, feed?
 		tokens: [], // Empty array for now, will be filled by separate cronjob
 		summary: '', // For arXiv: use description, others: null (filled by separate cronjob)
 		source_type: source_type || 'rss',
-		content: summary || crawled_content || null,
-		// Add arXiv-specific fields if available
-		...(authors && { authors }),
-		...(arxiv_categories && { arxiv_categories }),
+		content: (summary || crawled_content || '') + contentExtensions,
 	};
 
 	console.log(`[${feed.name}] Inserting article into database...`);
@@ -289,6 +293,8 @@ export default {
 							if (feed.name && feed.name.toLowerCase().includes('arxiv')) {
 								if (item.id) {
 									return item.id; // arXiv ID format
+								} else if (typeof item.link === 'string') {
+									return item.link; // arXiv link is direct string
 								} else if (item.link && Array.isArray(item.link)) {
 									const absLink = item.link.find((l: any) => l['@_href']?.includes('/abs/'));
 									return absLink ? absLink['@_href'] : item.link[0]['@_href'];
@@ -327,6 +333,7 @@ export default {
 					}
 
 					const existingUrls = new Set(existing.map((e: any) => e.url));
+					
 					const newItems = items.filter((item: any) => {
 						let itemUrl;
 						
@@ -334,6 +341,8 @@ export default {
 						if (feed.name && feed.name.toLowerCase().includes('arxiv')) {
 							if (item.id) {
 								itemUrl = item.id; // arXiv ID format
+							} else if (typeof item.link === 'string') {
+								itemUrl = item.link; // arXiv link is direct string
 							} else if (item.link && Array.isArray(item.link)) {
 								const absLink = item.link.find((l: any) => l['@_href']?.includes('/abs/'));
 								itemUrl = absLink ? absLink['@_href'] : item.link[0]['@_href'];
@@ -347,9 +356,11 @@ export default {
 						} else if (item.url) {
 							itemUrl = item.url;
 						}
+						
 						return itemUrl && !existingUrls.has(itemUrl);
 					});
 
+					console.log(`[${feed.name}] Found ${newItems.length} new items to process`);
 					await Promise.allSettled(newItems.map((item: any) => processAndInsertArticle(supabase, env, item, feed, 'rss')));
 
 					await supabase
