@@ -36,7 +36,6 @@ export function CollapsiblePromptEditor({
       >
         <div className="flex items-center gap-2">
           <Edit3 className="h-4 w-4" />
-          <span className="text-sm font-medium">Custom Prompt</span>
           {customPrompt && (
             <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
               已設定

@@ -62,12 +62,22 @@ export function CollapsibleSidebar({
   getArticleTitle,
 }: CollapsibleSidebarProps) {
   return (
-    <aside className="bg-white flex flex-col relative h-full w-full transition-all duration-500 ease-in-out border-l border-gray-200 sticky top-8 self-start max-h-screen overflow-hidden">
+    <aside className="sticky bg-white w-full transition-all duration-500 ease-in-out border-l border-gray-200 top-8 self-start max-h-[calc(100vh-2rem)] flex flex-col">
       {/* Content - Only show when expanded */}
       {!isCollapsed && (
-        <div className="pt-4 p-4 pl-8 space-y-6 overflow-y-auto flex-1">
-          {/* Custom Prompt Editor */}
-          <div>
+        <>
+          {/* Test Results Panel - Scrollable area */}
+          <div className="flex-1 px-4 pl-8">
+            <PromptTestPanel
+              result={testResult}
+              selectedArticles={selectedArticles}
+              onClearResult={onClearTestResult}
+              getArticleTitle={getArticleTitle}
+            />
+          </div>
+
+          {/* Custom Prompt Editor - Sticky at bottom of sidebar */}
+          <div className="bottom-0 left-0 right-0 bg-white border-gray-200 px-4 pb-4 pl-8">
             <PromptEditor
               user={user}
               tempCustomPrompt={tempCustomPrompt}
@@ -87,17 +97,7 @@ export function CollapsibleSidebar({
               getArticleTitle={getArticleTitle}
             />
           </div>
-
-          {/* Test Results Panel */}
-          <div>
-            <PromptTestPanel
-              result={testResult}
-              selectedArticles={selectedArticles}
-              onClearResult={onClearTestResult}
-              getArticleTitle={getArticleTitle}
-            />
-          </div>
-        </div>
+        </>
       )}
     </aside>
   );

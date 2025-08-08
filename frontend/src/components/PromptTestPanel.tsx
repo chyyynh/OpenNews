@@ -80,7 +80,7 @@ export function PromptTestPanel({
   if (!result) return null;
 
   return (
-    <div className=" space-y-4">
+    <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="text-md font-medium">測試結果</h3>
@@ -120,7 +120,7 @@ export function PromptTestPanel({
       </div>
 
       {/* Result */}
-      <div className="border border-gray-200 rounded-lg p-3 bg-white">
+      <div className="border-t border-l border-r rounded-lg p-3 bg-white">
         <div className="text-xs text-gray-600 font-medium mb-2">AI 回應</div>
         {result.isLoading ? (
           <div className="flex items-center gap-2 text-gray-500 py-4">

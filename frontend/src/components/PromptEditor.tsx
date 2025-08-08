@@ -61,7 +61,7 @@ export function PromptEditor({
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const [tagSaveSuccess, setTagSaveSuccess] = useState(false);
   const [isTestingPrompt, setIsTestingPrompt] = useState(false);
-  const [isArticlesCollapsed, setIsArticlesCollapsed] = useState(false);
+  const [isArticlesCollapsed, setIsArticlesCollapsed] = useState(true);
   const searchRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -177,98 +177,103 @@ export function PromptEditor({
   };
   return (
     <div className="rounded-lg" ref={containerRef}>
-      <h2 className="text-lg font-semibold mb-3">Custom Prompt</h2>
-
-      {/* Selected Articles Status Bar */}
-      {selectedArticles && selectedArticles.length > 0 && (
-        <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          {selectedArticles.length === 1 ? (
-            <div className="flex items-start gap-2">
-              <SourceIcon
-                source={selectedArticles[0].source}
-                className="w-4 h-4 flex-shrink-0 mt-0.5"
-              />
-              <div className="text-sm text-blue-900 font-medium line-clamp-2 flex-1">
-                {getArticleTitle
-                  ? getArticleTitle(selectedArticles[0])
-                  : selectedArticles[0].title}
-              </div>
-              {onDeselectArticle && (
-                <button
-                  onClick={() => onDeselectArticle(selectedArticles[0].id)}
-                  className="flex-shrink-0 p-1 hover:bg-blue-200 rounded-full transition-colors"
-                  title="取消選擇"
-                >
-                  <X className="h-3 w-3 text-blue-700" />
-                </button>
-              )}
-            </div>
-          ) : (
-            <div>
-              <div
-                className="flex items-center justify-between cursor-pointer mb-2"
-                onClick={() => setIsArticlesCollapsed(!isArticlesCollapsed)}
-              >
-                <div className="text-sm text-blue-900 font-medium">
-                  已選擇 {selectedArticles.length} 篇文章
-                </div>
-                {isArticlesCollapsed ? (
-                  <ChevronRight className="h-4 w-4 text-blue-700" />
-                ) : (
-                  <ChevronDown className="h-4 w-4 text-blue-700" />
-                )}
-              </div>
-
-              {!isArticlesCollapsed && (
-                <div className="space-y-1 max-h-32 overflow-y-auto">
-                  {selectedArticles.slice(0, 5).map((article, index) => (
-                    <div
-                      key={article.id || index}
-                      className="flex items-center gap-2"
+      <form className="relative p-3 z-20 rounded-xl overflow-visible bg-background border border-gray-200 focus-within:border-gray-300 transition-colors duration-200">
+        {/* Selected Articles - Inside form at top */}
+        {selectedArticles && selectedArticles.length > 0 && (
+          <div
+            className="mb-3 flex items-center"
+            style={{
+              marginBottom: isArticlesCollapsed ? "12px" : "12px",
+              height: "auto",
+              opacity: 1,
+              pointerEvents: "auto",
+            }}
+          >
+            <div className="relative w-full">
+              {selectedArticles.length === 1 ? (
+                <div className="flex items-center gap-2 p-2 bg-blue-50/90 backdrop-blur-sm border border-blue-200 rounded-lg">
+                  <SourceIcon
+                    source={selectedArticles[0].source}
+                    className="w-4 h-4 flex-shrink-0"
+                  />
+                  <div className="text-xs text-blue-900 font-medium line-clamp-1 flex-1">
+                    {getArticleTitle
+                      ? getArticleTitle(selectedArticles[0])
+                      : selectedArticles[0].title}
+                  </div>
+                  {onDeselectArticle && (
+                    <button
+                      type="button"
+                      onClick={() => onDeselectArticle(selectedArticles[0].id)}
+                      className="flex-shrink-0 p-1 hover:bg-blue-200 rounded-full transition-colors"
+                      title="取消選擇"
                     >
-                      <SourceIcon
-                        source={article.source}
-                        className="w-4 h-4 flex-shrink-0"
-                      />
-                      <div className="text-sm font-medium text-blue-800 line-clamp-1 flex-1">
-                        {getArticleTitle
-                          ? getArticleTitle(article)
-                          : article.title}
-                      </div>
-                      {onDeselectArticle && (
-                        <button
-                          onClick={() => onDeselectArticle(article.id)}
-                          className="flex-shrink-0 p-1 hover:bg-blue-200 rounded-full transition-colors"
-                          title="取消選擇"
-                        >
-                          <X className="h-3 w-3 text-blue-700" />
-                        </button>
-                      )}
+                      <X className="h-2 w-2 text-blue-700" />
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="bg-blue-50/90 backdrop-blur-sm border border-blue-200 rounded-lg">
+                  <div
+                    className="flex items-center justify-between cursor-pointer"
+                    onClick={() => setIsArticlesCollapsed(!isArticlesCollapsed)}
+                  >
+                    <div className="p-2 text-xs text-blue-900 font-medium">
+                      已選擇 {selectedArticles.length} 篇文章
                     </div>
-                  ))}
-                  {selectedArticles.length > 5 && (
-                    <div className="text-xs text-blue-600">
-                      ... 還有 {selectedArticles.length - 5} 篇文章
+                    {isArticlesCollapsed ? (
+                      <ChevronRight className="h-3 w-7 text-blue-700" />
+                    ) : (
+                      <ChevronDown className="h-3 w-7 text-blue-700" />
+                    )}
+                  </div>
+
+                  {!isArticlesCollapsed && (
+                    <div className="absolute mt-0 space-y-1 max-h-30 overflow-y-auto bg-blue-50 border border-blue-200 rounded-lg p-2 z-30">
+                      {selectedArticles.map((article, index) => (
+                        <div
+                          key={article.id || index}
+                          className="flex items-center gap-2"
+                        >
+                          <SourceIcon
+                            source={article.source}
+                            className="w-3 h-3 flex-shrink-0"
+                          />
+                          <div className="text-xs font-medium text-blue-800 line-clamp-1 flex-1">
+                            {getArticleTitle
+                              ? getArticleTitle(article)
+                              : article.title}
+                          </div>
+                          {onDeselectArticle && (
+                            <button
+                              type="button"
+                              onClick={() => onDeselectArticle(article.id)}
+                              className="flex-shrink-0 p-0.5 hover:bg-blue-200 rounded-full transition-colors"
+                              title="取消選擇"
+                            >
+                              <X className="h-2 w-2 text-blue-700" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
               )}
             </div>
-          )}
-        </div>
-      )}
+          </div>
+        )}
 
-      <div className="relative w-full">
         <Textarea
           placeholder="輸入自定義 Prompt，選擇文章後點擊測試按鈕查看 AI 回應..."
           value={tempCustomPrompt}
           onChange={(e) => setTempCustomPrompt(e.target.value)}
-          className="min-h-[80px] pr-28 resize-none"
+          className="h-full w-full overflow-y-auto outline-none max-h-[160px] min-h-[44px] pb-2 resize-none border-0 focus:ring-0 p-0"
         />
 
         {/* Selected Tags Display */}
         {selectedTags.length > 0 && (
-          <div className="absolute top-2 left-3 right-28 flex flex-wrap gap-1 pointer-events-none">
+          <div className="absolute top-3 left-3 right-16 flex flex-wrap gap-1 pointer-events-none">
             {selectedTags.slice(0, 3).map((tag) => (
               <span
                 key={tag}
@@ -285,154 +290,152 @@ export function PromptEditor({
           </div>
         )}
 
-        {/* Tags Button */}
-        <Button
-          onClick={() => setShowTagSelector(!showTagSelector)}
-          className={`absolute bottom-2 right-14 h-8 w-8 p-0 transition-colors ${
-            showTagSelector
-              ? "bg-blue-100 text-blue-600"
-              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-          }`}
-          variant="ghost"
-        >
-          <Tags className="h-4 w-4" />
-        </Button>
+        {/* Bottom Toolbar */}
+        <div className="flex items-center gap-1 mt-2">
+          <div className="flex items-end gap-0.5">
+            <Button
+              type="button"
+              onClick={() => setShowTagSelector(!showTagSelector)}
+              className={`h-7 w-7 p-0 transition-colors rounded-md ${
+                showTagSelector
+                  ? "bg-blue-100 text-blue-600"
+                  : "bg-transparent text-gray-500 hover:text-gray-900 hover:bg-alpha-200"
+              }`}
+              variant="ghost"
+            >
+              <Tags className="h-4 w-4" />
+            </Button>
+          </div>
 
-        {/* Test & Save Button (Combined) */}
-        <Button
-          onClick={
-            selectedArticles && selectedArticles.length > 0
-              ? handleTestPrompt
-              : handleSavePrompt
-          }
-          disabled={
-            isTestingPrompt || isSaving || !tempCustomPrompt.trim() || !user
-          }
-          className={`absolute bottom-2 right-2 h-8 px-3 text-xs transition-colors ${
-            isTestingPrompt || isSaving || !tempCustomPrompt.trim() || !user
-              ? "bg-gray-400 text-gray-600 cursor-not-allowed"
-              : "bg-black text-white hover:bg-gray-800"
-          }`}
-          title={
-            selectedArticles && selectedArticles.length > 0
-              ? "測試並保存 Prompt"
-              : "保存 Prompt"
-          }
-        >
-          {isTestingPrompt || isSaving ? (
-            <>
-              <Loader className="mr-1 h-3 w-3 animate-spin" />
-              {isTestingPrompt ? "測試中" : "保存中"}
-            </>
-          ) : saveSuccess ? (
-            <>
-              <Check className="mr-1 h-3 w-3" />
-              已保存
-            </>
-          ) : selectedArticles && selectedArticles.length > 0 ? (
-            "測試"
-          ) : (
-            "保存"
-          )}
-        </Button>
-
-        {/* Tag Selector Dropdown */}
-        {showTagSelector && (
-          <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
-            <div className="p-3">
-              {/* Search Input */}
-              <div className="relative mb-3">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  ref={searchRef}
-                  type="text"
-                  placeholder="搜尋標籤..."
-                  value={searchQuery}
-                  onChange={handleInputChange}
-                  onFocus={handleInputFocus}
-                  onKeyDown={handleKeyDown}
-                  className="pl-10 text-sm h-9 rounded-full border-2 border-gray-200 focus:border-blue-500 transition-colors"
-                />
-              </div>
-
-              {/* Selected Tags */}
-              {selectedTags.length > 0 && (
-                <div className="mb-3">
-                  <div className="text-xs text-gray-500 mb-2">
-                    已選擇的標籤:
-                  </div>
-                  <div className="flex flex-wrap gap-1 max-h-16 overflow-y-auto">
-                    {selectedTags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="inline-flex items-center px-2 py-1 rounded-full bg-blue-100 text-blue-800 text-xs border border-blue-200"
-                      >
-                        {tag}
-                        <button
-                          onClick={() => toggleTag(tag)}
-                          className="ml-1 hover:bg-blue-200 rounded-full p-0.5 transition-colors"
-                          title={`移除 ${tag}`}
-                        >
-                          <X className="h-2 w-2" />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                </div>
+          <div className="ml-auto flex items-center gap-1">
+            <Button
+              type="button"
+              onClick={
+                selectedArticles && selectedArticles.length > 0
+                  ? handleTestPrompt
+                  : handleSavePrompt
+              }
+              disabled={
+                isTestingPrompt || isSaving || !tempCustomPrompt.trim() || !user
+              }
+              className={`h-7 px-3 text-sm rounded-lg transition-colors ${
+                isTestingPrompt || isSaving || !tempCustomPrompt.trim() || !user
+                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  : "bg-gray-900 text-white hover:bg-gray-700"
+              }`}
+            >
+              {isTestingPrompt || isSaving ? (
+                <>
+                  <Loader className="mr-1 h-3 w-3 animate-spin" />
+                  {isTestingPrompt ? "測試中" : "保存中"}
+                </>
+              ) : saveSuccess ? (
+                <>
+                  <Check className="mr-1 h-3 w-3" />
+                  已保存
+                </>
+              ) : selectedArticles && selectedArticles.length > 0 ? (
+                "測試"
+              ) : (
+                "保存"
               )}
+            </Button>
+          </div>
+        </div>
+      </form>
 
-              {/* Tag Suggestions */}
-              {filteredTags.length > 0 && (
-                <div className="max-h-48 overflow-y-auto mb-3">
-                  <div className="text-xs text-gray-500 mb-2">
-                    可選擇的標籤:
-                  </div>
-                  {filteredTags.map((tag, index) => (
-                    <div
+      {/* Tag Selector Dropdown */}
+      {showTagSelector && (
+        <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
+          <div className="p-3">
+            {/* Search Input */}
+            <div className="relative mb-3">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                ref={searchRef}
+                type="text"
+                placeholder="搜尋標籤..."
+                value={searchQuery}
+                onChange={handleInputChange}
+                onFocus={handleInputFocus}
+                onKeyDown={handleKeyDown}
+                className="pl-10 text-sm h-9 rounded-full border-2 border-gray-200 focus:border-blue-500 transition-colors"
+              />
+            </div>
+
+            {/* Selected Tags */}
+            {selectedTags.length > 0 && (
+              <div className="mb-3">
+                <div className="text-xs text-gray-500 mb-2">已選擇的標籤:</div>
+                <div className="flex flex-wrap gap-1 max-h-16 overflow-y-auto">
+                  {selectedTags.map((tag) => (
+                    <span
                       key={tag}
-                      className={`px-3 py-2 cursor-pointer text-sm transition-colors rounded ${
-                        index === focusedIndex
-                          ? "bg-blue-50 text-blue-700"
-                          : "hover:bg-gray-50"
-                      }`}
-                      onClick={() => handleTagSelect(tag)}
-                      onMouseEnter={() => setFocusedIndex(index)}
+                      className="inline-flex items-center px-2 py-1 rounded-full bg-blue-100 text-blue-800 text-xs border border-blue-200"
                     >
-                      <Tags className="inline w-3 h-3 mr-2 text-gray-400" />
                       {tag}
-                    </div>
+                      <button
+                        onClick={() => toggleTag(tag)}
+                        className="ml-1 hover:bg-blue-200 rounded-full p-0.5 transition-colors"
+                        title={`移除 ${tag}`}
+                      >
+                        <X className="h-2 w-2" />
+                      </button>
+                    </span>
                   ))}
                 </div>
-              )}
+              </div>
+            )}
 
-              {/* Save Tags Button */}
-              <Button
-                onClick={handleTagSave}
-                disabled={isSavingTags || !user}
-                className={`w-full h-8 text-xs transition-colors ${
-                  isSavingTags || !user
-                    ? "bg-gray-400 text-gray-600 cursor-not-allowed"
-                    : "bg-black text-white hover:bg-gray-800"
-                }`}
-              >
-                {isSavingTags ? (
-                  <>
-                    <Loader className="mr-1 h-3 w-3 animate-spin" />
-                    保存標籤中
-                  </>
-                ) : tagSaveSuccess ? (
-                  <>
-                    <Check className="mr-1 h-3 w-3" />
-                    標籤已保存
-                  </>
-                ) : (
-                  "保存標籤設定"
-                )}
-              </Button>
-            </div>
+            {/* Tag Suggestions */}
+            {filteredTags.length > 0 && (
+              <div className="max-h-48 overflow-y-auto mb-3">
+                <div className="text-xs text-gray-500 mb-2">可選擇的標籤:</div>
+                {filteredTags.map((tag, index) => (
+                  <div
+                    key={tag}
+                    className={`px-3 py-2 cursor-pointer text-sm transition-colors rounded ${
+                      index === focusedIndex
+                        ? "bg-blue-50 text-blue-700"
+                        : "hover:bg-gray-50"
+                    }`}
+                    onClick={() => handleTagSelect(tag)}
+                    onMouseEnter={() => setFocusedIndex(index)}
+                  >
+                    <Tags className="inline w-3 h-3 mr-2 text-gray-400" />
+                    {tag}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Save Tags Button */}
+            <Button
+              onClick={handleTagSave}
+              disabled={isSavingTags || !user}
+              className={`w-full h-8 text-xs transition-colors ${
+                isSavingTags || !user
+                  ? "bg-gray-400 text-gray-600 cursor-not-allowed"
+                  : "bg-black text-white hover:bg-gray-800"
+              }`}
+            >
+              {isSavingTags ? (
+                <>
+                  <Loader className="mr-1 h-3 w-3 animate-spin" />
+                  保存標籤中
+                </>
+              ) : tagSaveSuccess ? (
+                <>
+                  <Check className="mr-1 h-3 w-3" />
+                  標籤已保存
+                </>
+              ) : (
+                "保存標籤設定"
+              )}
+            </Button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
