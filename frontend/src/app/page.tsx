@@ -21,8 +21,6 @@ import type { ArticleItem, AppUser } from "@/types";
 import { useTags } from "@/hooks/useTags";
 import { useSources } from "@/hooks/useSources";
 import { useCustomPrompt } from "@/hooks/useCustomPrompt";
-import { PromptEditor } from "@/components/PromptEditor";
-import { TagSelector } from "@/components/TagSelector";
 import { CollapsiblePromptEditor } from "@/components/CollapsiblePromptEditor";
 import { CollapsibleTagSelector } from "@/components/CollapsibleTagSelector";
 import { RequestRSSDialog } from "@/components/RequestRSSDialog";
@@ -30,6 +28,7 @@ import { CollapsibleSidebar } from "@/components/CollapsibleSidebar";
 import { KOLModeToggle } from "@/components/KOLModeToggle";
 import { UserMenu } from "@/components/UserMenu";
 import { SendToTwitterButton } from "@/components/SendToTwitterButton";
+import { PromptTestResult } from "@/components/PromptTestResult";
 import { useSession } from "@/lib/auth-client";
 
 export default function Home() {
@@ -49,10 +48,26 @@ export default function Home() {
   // KOL Mode state
   const [isKolModeEnabled, setIsKolModeEnabled] = useState<boolean>(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
+  
+  // Article selection state
+  const [selectedArticle, setSelectedArticle] = useState<ArticleItem | null>(null);
+  
+  // Test result state
+  const [testResult, setTestResult] = useState<{
+    prompt: string;
+    article: {
+      title: string;
+      summary?: string;
+      content?: string;
+    };
+    response: string;
+    isLoading?: boolean;
+    error?: string;
+  } | null>(null);
+  const [showTestResult, setShowTestResult] = useState(false);
 
   // Initialize converters
   const converterToSimplified = Converter({ from: "tw", to: "cn" });
-  const converterToTraditional = Converter({ from: "cn", to: "tw" });
 
   // Use Better Auth session
   const { data: session } = useSession();
@@ -78,22 +93,17 @@ export default function Home() {
   const {
     tags,
     selectedTags,
-    isLoading: isTagsLoading,
     isSaving: isSavingTags,
     toggleTag,
     saveUserPreferences,
   } = useTags();
 
   const {
-    sources,
     selectedSources,
     categorizedSources,
-    isLoading: isSourcesLoading,
-    isSaving: isSavingSources,
     toggleSource,
     toggleCategoryAll,
     isCategoryAllSelected,
-    saveUserSourcePreferences,
   } = useSources();
 
   const {
@@ -105,7 +115,6 @@ export default function Home() {
     handleSavePrompt,
   } = useCustomPrompt();
 
-  const searchParams = useSearchParams();
 
   // Stable reference for current filter values (moved up to avoid hoisting issues)
   const currentFilters = useMemo(
@@ -209,91 +218,6 @@ export default function Home() {
     }
   };
 
-  // Generate tag toggle href
-  const getToggleTagHref = useCallback(
-    (tag: string): string => {
-      const newSelectedTags = selectedTags.includes(tag)
-        ? selectedTags.filter((t) => t !== tag)
-        : [...selectedTags, tag];
-
-      if (newSelectedTags.length === 0) {
-        return "/";
-      }
-      return `/?tags=${newSelectedTags.map(encodeURIComponent).join(",")}`;
-    },
-    [selectedTags]
-  );
-
-  // Fetch articles function
-  const fetchArticles = useCallback(
-    async (offset = 0, reset = false) => {
-      if (reset) {
-        setIsLoading(true);
-        setHasMore(true);
-      } else {
-        setIsLoadingMore(true);
-      }
-
-      try {
-        let query = supabase
-          .from("articles")
-          .select(
-            "id, title, title_cn, url, published_date, tags, keywords, summary, summary_cn, content, source"
-          )
-          .order("published_date", { ascending: false });
-
-        if (selectedTags.length > 0) {
-          query = query.overlaps("tags", selectedTags);
-        }
-
-        if (selectedSources.length > 0) {
-          query = query.in("source", selectedSources);
-        }
-
-        // Add time filter
-        const dateFilter = getDateFilter(selectedTimeFilter);
-        if (dateFilter) {
-          query = query.gte("published_date", dateFilter);
-        }
-
-        query = query.range(offset, offset + 19); // Load 20 items at a time
-
-        const { data, error } = await query;
-
-        if (error) {
-          console.error("获取文章时出错:", error);
-          setFetchError(error);
-          return;
-        }
-
-        const newArticles = data as ArticleItem[];
-
-        if (reset) {
-          setArticles(newArticles);
-        } else {
-          // Filter out duplicate articles by ID
-          setArticles((prev) => {
-            const existingIds = new Set(prev.map((article) => article.id));
-            const uniqueNewArticles = newArticles.filter(
-              (article) => !existingIds.has(article.id)
-            );
-            return [...prev, ...uniqueNewArticles];
-          });
-        }
-
-        // Check if we have more data
-        setHasMore(newArticles.length === 20);
-        setFetchError(null);
-      } catch (err) {
-        console.error("fetchArticles 中出错:", err);
-        setFetchError(err);
-      } finally {
-        setIsLoading(false);
-        setIsLoadingMore(false);
-      }
-    },
-    [selectedTags, selectedSources, selectedTimeFilter]
-  );
 
   // Infinite scroll effect
   useEffect(() => {
@@ -454,15 +378,64 @@ export default function Home() {
     return result;
   };
 
-  // Handle saving source preferences with toast notifications
-  const handleSaveSourcePreferencesWithToast = async () => {
-    const result = await saveUserSourcePreferences();
-    if (result.success) {
-      toast.success(result.message);
-    } else {
-      toast.error(result.message);
+
+  // Handle test prompt
+  const handleTestPrompt = async (article: ArticleItem, prompt: string) => {
+    // Set initial loading state
+    const initialResult = {
+      prompt,
+      article: {
+        title: getArticleTitle(article),
+        summary: getArticleSummary(article),
+        content: article.content || undefined
+      },
+      response: '',
+      isLoading: true
+    };
+    
+    setTestResult(initialResult);
+    setShowTestResult(true);
+
+    try {
+      // Call API to test prompt
+      const response = await fetch('/api/test-prompt', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          article: {
+            title: article.title,
+            summary: article.summary,
+            content: article.content,
+            url: article.url
+          },
+          prompt: prompt.trim()
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      setTestResult({
+        ...initialResult,
+        response: data.response || '無回應',
+        isLoading: false
+      });
+      
+      toast.success('Prompt 測試完成');
+    } catch (error) {
+      console.error('Test prompt error:', error);
+      setTestResult({
+        ...initialResult,
+        error: error instanceof Error ? error.message : '發生未知錯誤',
+        isLoading: false
+      });
+      toast.error('測試失敗');
     }
-    return result;
   };
 
   return (
@@ -788,7 +761,12 @@ export default function Home() {
               {articles.map((item: ArticleItem) => (
                 <li
                   key={item.id}
-                  className="border rounded-lg p-3 sm:p-4 shadow hover:shadow-md transition-shadow overflow-auto"
+                  className={`border rounded-lg p-3 sm:p-4 shadow hover:shadow-md transition-all duration-200 overflow-auto cursor-pointer ${
+                    selectedArticle?.id === item.id 
+                      ? 'border-blue-500 bg-blue-50' 
+                      : 'hover:border-gray-400'
+                  }`}
+                  onClick={() => setSelectedArticle(item)}
                 >
                   <div className="flex items-center gap-2 mb-2">
                     <SourceIcon source={item.source} className="w-4 h-4" />
@@ -925,11 +903,20 @@ export default function Home() {
                 isSavingTags={isSavingTags}
                 saveUserPreferences={handleSavePreferencesWithToast}
                 isCollapsed={isSidebarCollapsed}
+                selectedArticle={selectedArticle}
+                onTestPrompt={handleTestPrompt}
               />
             )}
           </div>
         )}
       </div>
+
+      {/* Prompt Test Result Modal */}
+      <PromptTestResult
+        isVisible={showTestResult}
+        onClose={() => setShowTestResult(false)}
+        result={testResult}
+      />
     </div>
   );
 }

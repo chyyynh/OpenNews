@@ -21,6 +21,9 @@ interface CollapsibleSidebarProps {
   saveUserPreferences: () => Promise<{ success: boolean; message: string }>;
   // External control
   isCollapsed?: boolean;
+  // Test functionality props
+  selectedArticle?: any;
+  onTestPrompt?: (article: any, prompt: string) => Promise<void>;
 }
 
 export function CollapsibleSidebar({
@@ -37,6 +40,8 @@ export function CollapsibleSidebar({
   isSavingTags,
   saveUserPreferences,
   isCollapsed = false,
+  selectedArticle,
+  onTestPrompt,
 }: CollapsibleSidebarProps) {
 
   return (
@@ -45,7 +50,7 @@ export function CollapsibleSidebar({
       {!isCollapsed && (
         <div className="flex-1">
           <div className="p-4 pl-8 space-y-6">
-            {/* Custom Prompt Editor */}
+            {/* Custom Prompt Editor with integrated Tag Selector */}
             <div>
               <PromptEditor
                 user={user}
@@ -55,21 +60,13 @@ export function CollapsibleSidebar({
                 saveSuccess={saveSuccess}
                 handleSavePrompt={handleSavePrompt}
                 customPrompt={customPrompt}
-              />
-            </div>
-
-            {/* Separator */}
-            <hr className="border-gray-200" />
-
-            {/* Tag Selector */}
-            <div>
-              <TagSelector
-                user={user}
                 tags={tags}
                 selectedTags={selectedTags}
                 toggleTag={toggleTag}
-                isSaving={isSavingTags}
+                isSavingTags={isSavingTags}
                 saveUserPreferences={saveUserPreferences}
+                selectedArticle={selectedArticle}
+                onTestPrompt={onTestPrompt}
               />
             </div>
           </div>
