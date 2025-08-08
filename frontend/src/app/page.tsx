@@ -44,14 +44,14 @@ export default function Home() {
 
   // Language state
   const [selectedLanguage, setSelectedLanguage] = useState<string>("zh-TW");
-  
+
   // KOL Mode state
   const [isKolModeEnabled, setIsKolModeEnabled] = useState<boolean>(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
-  
+
   // Article selection state (changed to support multiple articles)
   const [selectedArticles, setSelectedArticles] = useState<ArticleItem[]>([]);
-  
+
   // Test result state
   const [testResult, setTestResult] = useState<{
     prompt: string;
@@ -108,7 +108,6 @@ export default function Home() {
     saveSuccess,
     handleSavePrompt,
   } = useCustomPrompt();
-
 
   // Stable reference for current filter values (moved up to avoid hoisting issues)
   const currentFilters = useMemo(
@@ -211,7 +210,6 @@ export default function Home() {
         return null;
     }
   };
-
 
   // Infinite scroll effect
   useEffect(() => {
@@ -372,10 +370,20 @@ export default function Home() {
     return result;
   };
 
-
   // Handle clear test result
   const handleClearTestResult = () => {
     setTestResult(null);
+  };
+
+  // Handle deselect article
+  const handleDeselectArticle = (articleId: number) => {
+    setSelectedArticles((prev) =>
+      prev.filter((article) => article.id !== articleId)
+    );
+    // Clear test result when selection changes
+    if (testResult) {
+      setTestResult(null);
+    }
   };
 
   // Handle test prompt (updated to support multiple articles)
@@ -383,71 +391,138 @@ export default function Home() {
     // Set initial loading state
     const initialResult = {
       prompt,
-      article: articles.length > 0 ? {
-        title: articles.length === 1 ? getArticleTitle(articles[0]) : `${articles.length} 篇文章`,
-        summary: undefined,
-        content: undefined
-      } : { title: '', summary: undefined, content: undefined },
-      response: '',
-      isLoading: true
+      article:
+        articles.length > 0
+          ? {
+              title:
+                articles.length === 1
+                  ? getArticleTitle(articles[0])
+                  : `${articles.length} 篇文章`,
+              summary: undefined,
+              content: undefined,
+            }
+          : { title: "", summary: undefined, content: undefined },
+      response: "",
+      isLoading: true,
     };
-    
+
     setTestResult(initialResult);
 
     try {
       // Call API to test prompt with multiple articles
-      const response = await fetch('/api/test-prompt', {
-        method: 'POST',
+      const response = await fetch("/api/test-prompt", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          articles: articles.map(article => ({
+          articles: articles.map((article) => ({
             title: article.title,
             summary: article.summary,
             content: article.content,
-            url: article.url
+            url: article.url,
           })),
-          prompt: prompt.trim()
-        })
+          prompt: prompt.trim(),
+        }),
       });
 
-      const data = await response.json();
-      
       if (!response.ok) {
-        // Use the error message from the API response if available
-        const apiError = data.error || `HTTP error! status: ${response.status}`;
+        const errorData = await response.json().catch(() => ({}));
+        const apiError = errorData.error || `HTTP error! status: ${response.status}`;
         throw new Error(apiError);
       }
-      
-      setTestResult({
-        ...initialResult,
-        response: data.response || '無回應',
-        isLoading: false
-      });
-      
-      toast.success('Prompt 測試完成');
+
+      // Handle streaming response
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let fullResponse = "";
+      let pendingChunk = "";
+
+      if (!reader) {
+        throw new Error("Unable to read streaming response");
+      }
+
+      // Start streaming
+      console.log('Starting to read streaming response...');
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) {
+          console.log('Stream completed');
+          break;
+        }
+        
+        const chunk = decoder.decode(value, { stream: true });
+        pendingChunk += chunk;
+        const lines = pendingChunk.split('\n');
+        
+        // Keep the last incomplete line for next iteration
+        pendingChunk = lines.pop() || '';
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const jsonStr = line.slice(6);
+            if (jsonStr === '[DONE]') continue;
+            
+            try {
+              const parsed = JSON.parse(jsonStr);
+              const content = parsed.choices?.[0]?.delta?.content;
+              
+              if (content) {
+                // Character-by-character streaming for better visual effect
+                for (let i = 0; i < content.length; i++) {
+                  fullResponse += content[i];
+                  
+                  setTestResult({
+                    ...initialResult,
+                    response: fullResponse,
+                    isLoading: false,
+                  });
+                  
+                  // Adjust delay for typing effect (smaller = faster)
+                  await new Promise(resolve => setTimeout(resolve, 10));
+                }
+              }
+            } catch (e) {
+              // Ignore parsing errors for incomplete chunks
+              console.warn('Failed to parse chunk:', jsonStr);
+            }
+          }
+        }
+      }
+
+      if (fullResponse) {
+        toast.success("Prompt 測試完成");
+      } else {
+        throw new Error("No response content received");
+      }
     } catch (error) {
-      console.error('Test prompt error:', error);
-      
-      let errorMessage = '發生未知錯誤';
+      console.error("Test prompt error:", error);
+
+      let errorMessage = "發生未知錯誤";
       if (error instanceof Error) {
         errorMessage = error.message;
       }
-      
+
       setTestResult({
         ...initialResult,
         error: errorMessage,
-        isLoading: false
+        isLoading: false,
       });
-      
+
       // Show appropriate toast message based on error type
-      if (errorMessage.includes('過載') || errorMessage.includes('overloaded')) {
-        toast.error('AI 模型目前過載，請稍後再試', { duration: 5000 });
-      } else if (errorMessage.includes('頻繁') || errorMessage.includes('rate limit')) {
-        toast.error('請求過於頻繁，請稍後再試', { duration: 4000 });
+      if (
+        errorMessage.includes("過載") ||
+        errorMessage.includes("overloaded")
+      ) {
+        toast.error("AI 模型目前過載，請稍後再試", { duration: 5000 });
+      } else if (
+        errorMessage.includes("頻繁") ||
+        errorMessage.includes("rate limit")
+      ) {
+        toast.error("請求過於頻繁，請稍後再試", { duration: 4000 });
       } else {
-        toast.error('測試失敗，請稍後再試', { duration: 3000 });
+        toast.error("測試失敗，請稍後再試", { duration: 3000 });
       }
     }
   };
@@ -468,7 +543,11 @@ export default function Home() {
               className="text-xs sm:text-sm text-gray-500 hover:text-gray-700 transition-colors flex items-center gap-1"
             >
               built by chyyynh
-              <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="currentColor" viewBox="0 0 24 24">
+              <svg
+                className="w-3 h-3 sm:w-4 sm:h-4"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+              >
                 <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
               </svg>
             </a>
@@ -479,7 +558,11 @@ export default function Home() {
             {/* Language Selector */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="flex items-center gap-1 text-sm">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-1 text-sm"
+                >
                   {
                     languageOptions.find(
                       (lang) => lang.value === selectedLanguage
@@ -523,8 +606,8 @@ export default function Home() {
 
             {/* Authentication (Desktop Only) */}
             {session?.user ? (
-              <UserMenu 
-                user={session.user} 
+              <UserMenu
+                user={session.user}
                 isKolModeEnabled={isKolModeEnabled}
                 onKolModeToggle={setIsKolModeEnabled}
               />
@@ -560,7 +643,11 @@ export default function Home() {
           {/* Time Filter Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="flex items-center gap-1 text-xs whitespace-nowrap flex-shrink-0">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1 text-xs whitespace-nowrap flex-shrink-0"
+              >
                 {
                   timeFilterOptions.find(
                     (option) => option.value === selectedTimeFilter
@@ -647,7 +734,11 @@ export default function Home() {
           {/* Time Filter Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="flex items-center gap-1 text-sm">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1 text-sm"
+              >
                 {
                   timeFilterOptions.find(
                     (option) => option.value === selectedTimeFilter
@@ -753,13 +844,14 @@ export default function Home() {
       </div>
 
       <div className="flex relative">
-
         {/* Article list */}
-        <main className={`flex flex-col gap-4 min-w-0 transition-all duration-500 ease-in-out ${
-          isKolModeEnabled && !isSidebarCollapsed 
-            ? 'flex-[3] pr-8' 
-            : 'flex-1 pr-6'
-        }`}>
+        <main
+          className={`flex flex-col gap-4 min-w-0 transition-all duration-500 ease-in-out ${
+            isKolModeEnabled && !isSidebarCollapsed
+              ? "flex-[3] pr-8"
+              : "flex-1 pr-8"
+          }`}
+        >
           {isLoading && <p>{convertText("正在載入文章...")}</p>}
 
           {/* Show error if fetchError exists */}
@@ -776,22 +868,26 @@ export default function Home() {
                 <li
                   key={item.id}
                   className={`border rounded-lg p-3 sm:p-4 shadow hover:shadow-md transition-all duration-200 overflow-auto cursor-pointer ${
-                    selectedArticles.some(selected => selected.id === item.id) 
-                      ? 'border-blue-500 bg-blue-50' 
-                      : 'hover:border-gray-400'
+                    selectedArticles.some((selected) => selected.id === item.id)
+                      ? "border-blue-500 bg-blue-50"
+                      : "hover:border-gray-400"
                   }`}
                   onClick={(e) => {
                     e.preventDefault();
-                    const isSelected = selectedArticles.some(selected => selected.id === item.id);
-                    
+                    const isSelected = selectedArticles.some(
+                      (selected) => selected.id === item.id
+                    );
+
                     if (isSelected) {
                       // Remove from selection
-                      setSelectedArticles(prev => prev.filter(selected => selected.id !== item.id));
+                      setSelectedArticles((prev) =>
+                        prev.filter((selected) => selected.id !== item.id)
+                      );
                     } else {
                       // Add to selection
-                      setSelectedArticles(prev => [...prev, item]);
+                      setSelectedArticles((prev) => [...prev, item]);
                     }
-                    
+
                     // Clear test result when selection changes
                     if (testResult) {
                       setTestResult(null);
@@ -878,43 +974,45 @@ export default function Home() {
 
         {/* KOL Mode Collapsible Sidebar */}
         {true && (
-          <div className={`relative transition-all duration-500 ease-in-out ${
-            !isKolModeEnabled 
-              ? 'w-px border-l border-gray-300 bg-gray-100'
-              : isSidebarCollapsed 
-                ? 'w-px border-l border-gray-300 bg-gray-100' 
-                : 'flex-[2]'
-          }`}>
+          <div
+            className={`relative transition-all duration-500 ease-in-out ${
+              !isKolModeEnabled
+                ? "w-px border-l border-gray-300 bg-gray-100"
+                : isSidebarCollapsed
+                ? "w-px border-l border-gray-300 bg-gray-100"
+                : "flex-[2]"
+            }`}
+          >
             {/* Sidebar Collapse/Expand Button - Always show when user is logged in */}
             <div className="absolute top-4 left-0 z-50 -translate-x-1/2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    if (!isKolModeEnabled) {
-                      setIsKolModeEnabled(true);
-                      setIsSidebarCollapsed(false); // Ensure it expands when opening
-                    } else {
-                      setIsSidebarCollapsed(!isSidebarCollapsed);
-                    }
-                  }}
-                  className="p-2 h-8 w-8 transition-all duration-300 ease-in-out hover:bg-gray-100 rounded-full border-2 border-gray-200 bg-white"
-                  title={
-                    !isKolModeEnabled 
-                      ? "開啟 Dashboard"
-                      : isSidebarCollapsed 
-                        ? "展開 Dashboard" 
-                        : "收縮 Dashboard"
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (!isKolModeEnabled) {
+                    setIsKolModeEnabled(true);
+                    setIsSidebarCollapsed(false); // Ensure it expands when opening
+                  } else {
+                    setIsSidebarCollapsed(!isSidebarCollapsed);
                   }
-                >
-                  {!isKolModeEnabled ? (
-                    <ChevronLeft className="h-4 w-4" />
-                  ) : isSidebarCollapsed ? (
-                    <ChevronLeft className="h-4 w-4" />
-                  ) : (
-                    <ChevronRight className="h-4 w-4" />
-                  )}
-                </Button>
+                }}
+                className="p-2 h-8 w-8 transition-all duration-300 ease-in-out hover:bg-gray-100 rounded-full border-2 border-gray-200 bg-white"
+                title={
+                  !isKolModeEnabled
+                    ? "開啟 Dashboard"
+                    : isSidebarCollapsed
+                    ? "展開 Dashboard"
+                    : "收縮 Dashboard"
+                }
+              >
+                {!isKolModeEnabled ? (
+                  <ChevronLeft className="h-4 w-4" />
+                ) : isSidebarCollapsed ? (
+                  <ChevronLeft className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+              </Button>
             </div>
 
             {/* Dashboard Content - Only show when KOL Mode is enabled */}
@@ -935,6 +1033,7 @@ export default function Home() {
                 isCollapsed={isSidebarCollapsed}
                 selectedArticles={selectedArticles}
                 onTestPrompt={handleTestPrompt}
+                onDeselectArticle={handleDeselectArticle}
                 testResult={testResult}
                 onClearTestResult={handleClearTestResult}
                 getArticleTitle={getArticleTitle}
@@ -943,8 +1042,6 @@ export default function Home() {
           </div>
         )}
       </div>
-
-
     </div>
   );
 }

@@ -24,6 +24,7 @@ interface CollapsibleSidebarProps {
   // Test functionality props
   selectedArticles?: any[];
   onTestPrompt?: (articles: any[], prompt: string) => Promise<void>;
+  onDeselectArticle?: (articleId: number) => void;
   testResult?: {
     prompt: string;
     article: {
@@ -55,6 +56,7 @@ export function CollapsibleSidebar({
   isCollapsed = false,
   selectedArticles,
   onTestPrompt,
+  onDeselectArticle,
   testResult,
   onClearTestResult,
   getArticleTitle,
@@ -81,6 +83,7 @@ export function CollapsibleSidebar({
               saveUserPreferences={saveUserPreferences}
               selectedArticles={selectedArticles}
               onTestPrompt={onTestPrompt}
+              onDeselectArticle={onDeselectArticle}
               getArticleTitle={getArticleTitle}
             />
           </div>

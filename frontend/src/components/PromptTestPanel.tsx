@@ -17,12 +17,14 @@ interface PromptTestPanelProps {
     isLoading?: boolean;
     error?: string;
   } | null;
-  selectedArticles?: {
-    id: string;
-    title: string;
-    summary?: string;
-    content?: string;
-  }[] | null;
+  selectedArticles?:
+    | {
+        id: string;
+        title: string;
+        summary?: string;
+        content?: string;
+      }[]
+    | null;
   onClearResult?: () => void;
   onRetry?: () => void;
   getArticleTitle?: (article: any) => string;
@@ -67,7 +69,7 @@ export function PromptTestPanel({
         {/* Prompt hint */}
         <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
           <div className="text-sm text-gray-600 text-center">
-            編輯 Prompt 後點擊「測試」按鈕查看 AI 回應
+            編輯 Prompt 後點擊「測試」按鈕查看結果
           </div>
         </div>
       </div>
@@ -116,7 +118,6 @@ export function PromptTestPanel({
           )}
         </div>
       </div>
-
 
       {/* Result */}
       <div className="border border-gray-200 rounded-lg p-3 bg-white">

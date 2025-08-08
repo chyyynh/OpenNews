@@ -69,6 +69,7 @@ ${articlesContent}
             ],
             max_tokens: 2000,
             temperature: 0.7,
+            stream: true,
           }),
         });
 
@@ -81,23 +82,13 @@ ${articlesContent}
           throw error;
         }
 
-        const data = await response.json();
-        const text = data.choices?.[0]?.message?.content;
-
-        if (!text) {
-          throw new Error("No response content from OpenRouter API");
-        }
-        
-        // If successful, return the result
-        return NextResponse.json({
-          success: true,
-          response: text,
-          metadata: {
-            articlesCount: articlesArray.length,
-            articleTitles: articlesArray.map((a: any) => a.title),
-            promptUsed: prompt,
-            timestamp: new Date().toISOString()
-          }
+        // Return the streaming response directly
+        return new Response(response.body, {
+          headers: {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+          },
         });
         
       } catch (apiError: any) {
