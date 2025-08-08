@@ -81,12 +81,7 @@ export default function Home() {
       email: session.user.email,
       image: session.user.image || undefined,
     };
-  }, [
-    session?.user?.id,
-    session?.user?.name,
-    session?.user?.email,
-    session?.user?.image,
-  ]);
+  }, [session?.user]);
 
   // Use custom hooks
   const {

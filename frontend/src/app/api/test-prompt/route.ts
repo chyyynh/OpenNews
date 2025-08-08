@@ -42,7 +42,7 @@ ${articleContent}
 `.trim();
 
     // Call OpenRouter API with retry logic
-    let retries = 3;
+    const retries = 3;
     let lastError;
     
     for (let i = 0; i < retries; i++) {

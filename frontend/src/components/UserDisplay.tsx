@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { UserIcon } from "lucide-react";
 import type { TelegramUser } from "@/types";
 
@@ -13,9 +14,11 @@ export function UserDisplay({ user }: UserDisplayProps) {
   return (
     <div className="flex items-center gap-2">
       {user.photo_url ? (
-        <img
-          src={user.photo_url || "/placeholder.svg"}
+        <Image
+          src={user.photo_url}
           alt={user.first_name}
+          width={24}
+          height={24}
           className="h-6 w-6 rounded-full"
         />
       ) : (

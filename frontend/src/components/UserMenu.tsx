@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { LogOut, Settings } from "lucide-react";
 import { useCallback, memo } from "react";
 import { Button } from "@/components/ui/button";
@@ -47,9 +48,11 @@ export const UserMenu = memo(function UserMenu({
         <Button variant="outline" className="flex items-center gap-2">
           <div className="flex items-center gap-2">
             {user.image ? (
-              <img
+              <Image
                 src={user.image}
                 alt={user.name || "User"}
+                width={24}
+                height={24}
                 className="w-6 h-6 rounded-full"
               />
             ) : (
