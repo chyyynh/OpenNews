@@ -1,7 +1,7 @@
 "use client";
 
 import { PromptEditor } from "@/components/PromptEditor";
-import { TagSelector } from "@/components/TagSelector";
+import { PromptTestPanel } from "@/components/PromptTestPanel";
 import type { AppUser } from "@/types";
 
 interface CollapsibleSidebarProps {
@@ -24,6 +24,18 @@ interface CollapsibleSidebarProps {
   // Test functionality props
   selectedArticle?: any;
   onTestPrompt?: (article: any, prompt: string) => Promise<void>;
+  testResult?: {
+    prompt: string;
+    article: {
+      title: string;
+      summary?: string;
+      content?: string;
+    };
+    response: string;
+    isLoading?: boolean;
+    error?: string;
+  } | null;
+  onClearTestResult?: () => void;
 }
 
 export function CollapsibleSidebar({
@@ -42,33 +54,42 @@ export function CollapsibleSidebar({
   isCollapsed = false,
   selectedArticle,
   onTestPrompt,
+  testResult,
+  onClearTestResult,
 }: CollapsibleSidebarProps) {
 
   return (
     <aside className="bg-white flex flex-col relative h-full w-full transition-all duration-500 ease-in-out border-l border-gray-200">
       {/* Content - Only show when expanded */}
       {!isCollapsed && (
-        <div className="flex-1">
-          <div className="p-4 pl-8 space-y-6">
-            {/* Custom Prompt Editor with integrated Tag Selector */}
-            <div>
-              <PromptEditor
-                user={user}
-                tempCustomPrompt={tempCustomPrompt}
-                setTempCustomPrompt={setTempCustomPrompt}
-                isSaving={isSavingPrompt}
-                saveSuccess={saveSuccess}
-                handleSavePrompt={handleSavePrompt}
-                customPrompt={customPrompt}
-                tags={tags}
-                selectedTags={selectedTags}
-                toggleTag={toggleTag}
-                isSavingTags={isSavingTags}
-                saveUserPreferences={saveUserPreferences}
-                selectedArticle={selectedArticle}
-                onTestPrompt={onTestPrompt}
-              />
-            </div>
+        <div className="flex-1 overflow-y-auto p-4 pl-8 space-y-6">
+          {/* Custom Prompt Editor */}
+          <div>
+            <PromptEditor
+              user={user}
+              tempCustomPrompt={tempCustomPrompt}
+              setTempCustomPrompt={setTempCustomPrompt}
+              isSaving={isSavingPrompt}
+              saveSuccess={saveSuccess}
+              handleSavePrompt={handleSavePrompt}
+              customPrompt={customPrompt}
+              tags={tags}
+              selectedTags={selectedTags}
+              toggleTag={toggleTag}
+              isSavingTags={isSavingTags}
+              saveUserPreferences={saveUserPreferences}
+              selectedArticle={selectedArticle}
+              onTestPrompt={onTestPrompt}
+            />
+          </div>
+
+          {/* Test Results Panel */}
+          <div>
+            <PromptTestPanel 
+              result={testResult}
+              selectedArticle={selectedArticle}
+              onClearResult={onClearTestResult}
+            />
           </div>
         </div>
       )}

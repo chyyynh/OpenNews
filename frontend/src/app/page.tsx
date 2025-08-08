@@ -23,12 +23,12 @@ import { useSources } from "@/hooks/useSources";
 import { useCustomPrompt } from "@/hooks/useCustomPrompt";
 import { CollapsiblePromptEditor } from "@/components/CollapsiblePromptEditor";
 import { CollapsibleTagSelector } from "@/components/CollapsibleTagSelector";
+import { PromptEditor } from "@/components/PromptEditor";
 import { RequestRSSDialog } from "@/components/RequestRSSDialog";
 import { CollapsibleSidebar } from "@/components/CollapsibleSidebar";
 import { KOLModeToggle } from "@/components/KOLModeToggle";
 import { UserMenu } from "@/components/UserMenu";
 import { SendToTwitterButton } from "@/components/SendToTwitterButton";
-import { PromptTestResult } from "@/components/PromptTestResult";
 import { useSession } from "@/lib/auth-client";
 
 export default function Home() {
@@ -64,7 +64,6 @@ export default function Home() {
     isLoading?: boolean;
     error?: string;
   } | null>(null);
-  const [showTestResult, setShowTestResult] = useState(false);
 
   // Initialize converters
   const converterToSimplified = Converter({ from: "tw", to: "cn" });
@@ -379,6 +378,11 @@ export default function Home() {
   };
 
 
+  // Handle clear test result
+  const handleClearTestResult = () => {
+    setTestResult(null);
+  };
+
   // Handle test prompt
   const handleTestPrompt = async (article: ArticleItem, prompt: string) => {
     // Set initial loading state
@@ -394,7 +398,6 @@ export default function Home() {
     };
     
     setTestResult(initialResult);
-    setShowTestResult(true);
 
     try {
       // Call API to test prompt
@@ -414,11 +417,13 @@ export default function Home() {
         })
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
       const data = await response.json();
+      
+      if (!response.ok) {
+        // Use the error message from the API response if available
+        const apiError = data.error || `HTTP error! status: ${response.status}`;
+        throw new Error(apiError);
+      }
       
       setTestResult({
         ...initialResult,
@@ -429,12 +434,26 @@ export default function Home() {
       toast.success('Prompt 測試完成');
     } catch (error) {
       console.error('Test prompt error:', error);
+      
+      let errorMessage = '發生未知錯誤';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
       setTestResult({
         ...initialResult,
-        error: error instanceof Error ? error.message : '發生未知錯誤',
+        error: errorMessage,
         isLoading: false
       });
-      toast.error('測試失敗');
+      
+      // Show appropriate toast message based on error type
+      if (errorMessage.includes('過載') || errorMessage.includes('overloaded')) {
+        toast.error('AI 模型目前過載，請稍後再試', { duration: 5000 });
+      } else if (errorMessage.includes('頻繁') || errorMessage.includes('rate limit')) {
+        toast.error('請求過於頻繁，請稍後再試', { duration: 4000 });
+      } else {
+        toast.error('測試失敗，請稍後再試', { duration: 3000 });
+      }
     }
   };
 
@@ -766,7 +785,13 @@ export default function Home() {
                       ? 'border-blue-500 bg-blue-50' 
                       : 'hover:border-gray-400'
                   }`}
-                  onClick={() => setSelectedArticle(item)}
+                  onClick={() => {
+                    setSelectedArticle(item);
+                    // Clear test result when selecting new article
+                    if (testResult) {
+                      setTestResult(null);
+                    }
+                  }}
                 >
                   <div className="flex items-center gap-2 mb-2">
                     <SourceIcon source={item.source} className="w-4 h-4" />
@@ -905,18 +930,15 @@ export default function Home() {
                 isCollapsed={isSidebarCollapsed}
                 selectedArticle={selectedArticle}
                 onTestPrompt={handleTestPrompt}
+                testResult={testResult}
+                onClearTestResult={handleClearTestResult}
               />
             )}
           </div>
         )}
       </div>
 
-      {/* Prompt Test Result Modal */}
-      <PromptTestResult
-        isVisible={showTestResult}
-        onClose={() => setShowTestResult(false)}
-        result={testResult}
-      />
+
     </div>
   );
 }

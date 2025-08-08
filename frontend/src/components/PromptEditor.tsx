@@ -138,12 +138,15 @@ export function PromptEditor({
     }
   };
 
-  // Handle test prompt
+  // Handle test prompt with auto-save
   const handleTestPrompt = async () => {
     if (!selectedArticle || !onTestPrompt || !tempCustomPrompt.trim()) return;
     
     setIsTestingPrompt(true);
     try {
+      // First save the prompt
+      await handleSavePrompt();
+      // Then test the prompt
       await onTestPrompt(selectedArticle, tempCustomPrompt);
     } catch (error) {
       console.error('Test prompt error:', error);
@@ -152,19 +155,19 @@ export function PromptEditor({
     }
   };
   return (
-    <div className="rounded-lg p-4 md:p-0" ref={containerRef}>
+    <div className="rounded-lg" ref={containerRef}>
       <h2 className="text-lg font-semibold mb-3">Custom Prompt</h2>
       <div className="relative w-full">
         <Textarea
-          placeholder="載入自定義提示詞..."
+          placeholder="輸入自定義 Prompt，選擇文章後點擊測試按鈕查看 AI 回應..."
           value={tempCustomPrompt}
           onChange={(e) => setTempCustomPrompt(e.target.value)}
-          className="min-h-[80px] pr-44 resize-none"
+          className="min-h-[80px] pr-28 resize-none"
         />
         
         {/* Selected Tags Display */}
         {selectedTags.length > 0 && (
-          <div className="absolute top-2 left-3 right-44 flex flex-wrap gap-1 pointer-events-none">
+          <div className="absolute top-2 left-3 right-28 flex flex-wrap gap-1 pointer-events-none">
             {selectedTags.slice(0, 3).map((tag) => (
               <span
                 key={tag}
@@ -182,7 +185,7 @@ export function PromptEditor({
         {/* Tags Button */}
         <Button
           onClick={() => setShowTagSelector(!showTagSelector)}
-          className={`absolute bottom-2 right-28 h-8 w-8 p-0 transition-colors ${
+          className={`absolute bottom-2 right-14 h-8 w-8 p-0 transition-colors ${
             showTagSelector ? "bg-blue-100 text-blue-600" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
           }`}
           variant="ghost"
@@ -190,44 +193,29 @@ export function PromptEditor({
           <Tags className="h-4 w-4" />
         </Button>
 
-        {/* Test Button */}
+        {/* Test & Save Button (Combined) */}
         <Button
-          onClick={handleTestPrompt}
-          disabled={isTestingPrompt || !selectedArticle || !tempCustomPrompt.trim() || !user}
-          className={`absolute bottom-2 right-14 h-8 px-2 text-xs transition-colors ${
-            isTestingPrompt || !selectedArticle || !tempCustomPrompt.trim() || !user
-              ? "bg-gray-400 text-gray-600 cursor-not-allowed"
-              : "bg-green-600 text-white hover:bg-green-700"
-          }`}
-          title={!selectedArticle ? "請先選擇一篇文章" : "測試當前 Prompt"}
-        >
-          {isTestingPrompt ? (
-            <Loader className="h-3 w-3 animate-spin" />
-          ) : (
-            "測試"
-          )}
-        </Button>
-
-        {/* Save Button */}
-        <Button
-          onClick={handleSavePrompt}
-          disabled={isSaving || tempCustomPrompt === customPrompt || !user}
+          onClick={selectedArticle ? handleTestPrompt : handleSavePrompt}
+          disabled={isTestingPrompt || isSaving || !tempCustomPrompt.trim() || !user}
           className={`absolute bottom-2 right-2 h-8 px-3 text-xs transition-colors ${
-            isSaving || tempCustomPrompt === customPrompt || !user
+            isTestingPrompt || isSaving || !tempCustomPrompt.trim() || !user
               ? "bg-gray-400 text-gray-600 cursor-not-allowed"
               : "bg-black text-white hover:bg-gray-800"
           }`}
+          title={selectedArticle ? "測試並保存 Prompt" : "保存 Prompt"}
         >
-          {isSaving ? (
+          {isTestingPrompt || isSaving ? (
             <>
               <Loader className="mr-1 h-3 w-3 animate-spin" />
-              保存中
+              {isTestingPrompt ? "測試中" : "保存中"}
             </>
           ) : saveSuccess ? (
             <>
               <Check className="mr-1 h-3 w-3" />
               已保存
             </>
+          ) : selectedArticle ? (
+            "測試"
           ) : (
             "保存"
           )}
