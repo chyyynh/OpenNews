@@ -46,7 +46,7 @@ export default function Home() {
   const [selectedLanguage, setSelectedLanguage] = useState<string>("zh-TW");
 
   // KOL Mode state
-  const [isKolModeEnabled, setIsKolModeEnabled] = useState<boolean>(false);
+  const [isKolModeEnabled, setIsKolModeEnabled] = useState<boolean>(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
 
   // Article selection state (changed to support multiple articles)

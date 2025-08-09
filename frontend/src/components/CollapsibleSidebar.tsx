@@ -62,12 +62,12 @@ export function CollapsibleSidebar({
   getArticleTitle,
 }: CollapsibleSidebarProps) {
   return (
-    <aside className="sticky bg-white w-full transition-all duration-500 ease-in-out border-l border-gray-200 top-8 self-start max-h-[calc(100vh-2rem)] flex flex-col">
+    <aside className="sticky bg-white w-full transition-all duration-500 ease-in-out border-l border-gray-200 top-4 self-start max-h-[calc(100vh-4rem)] flex flex-col overflow-hidden">
       {/* Content - Only show when expanded */}
       {!isCollapsed && (
         <>
           {/* Test Results Panel - Scrollable area */}
-          <div className="flex-1 px-4 pl-8">
+          <div className="flex-1 min-h-0 overflow-y-auto px-6 pt-6">
             <PromptTestPanel
               result={testResult}
               selectedArticles={selectedArticles}
@@ -77,7 +77,7 @@ export function CollapsibleSidebar({
           </div>
 
           {/* Custom Prompt Editor - Sticky at bottom of sidebar */}
-          <div className="bottom-0 left-0 right-0 bg-white border-gray-200 px-4 pb-4 pl-8">
+          <div className="flex-shrink-0 bg-white border-t border-gray-100 px-6 py-4">
             <PromptEditor
               user={user}
               tempCustomPrompt={tempCustomPrompt}

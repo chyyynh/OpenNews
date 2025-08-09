@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Copy, Check, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
@@ -37,6 +37,14 @@ export function PromptTestPanel({
   getArticleTitle,
 }: PromptTestPanelProps) {
   const [copied, setCopied] = useState(false);
+  const responseRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom when response content changes
+  useEffect(() => {
+    if (result?.response && responseRef.current && !result.isLoading) {
+      responseRef.current.scrollTop = responseRef.current.scrollHeight;
+    }
+  }, [result?.response, result?.isLoading]);
 
   const handleCopy = async () => {
     if (!result?.response) return;
@@ -133,7 +141,10 @@ export function PromptTestPanel({
             <div className="mt-1">{result.error}</div>
           </div>
         ) : result.response ? (
-          <div className="text-sm text-gray-800 whitespace-pre-wrap max-h-80 overflow-y-auto">
+          <div 
+            ref={responseRef}
+            className="text-sm text-gray-800 whitespace-pre-wrap max-h-80 overflow-y-auto scroll-smooth"
+          >
             {result.response}
           </div>
         ) : (
