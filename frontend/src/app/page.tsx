@@ -428,7 +428,8 @@ export default function Home() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        const apiError = errorData.error || `HTTP error! status: ${response.status}`;
+        const apiError =
+          errorData.error || `HTTP error! status: ${response.status}`;
         throw new Error(apiError);
       }
 
@@ -443,49 +444,49 @@ export default function Home() {
       }
 
       // Start streaming
-      console.log('Starting to read streaming response...');
+      console.log("Starting to read streaming response...");
       while (true) {
         const { done, value } = await reader.read();
-        
+
         if (done) {
-          console.log('Stream completed');
+          console.log("Stream completed");
           break;
         }
-        
+
         const chunk = decoder.decode(value, { stream: true });
         pendingChunk += chunk;
-        const lines = pendingChunk.split('\n');
-        
+        const lines = pendingChunk.split("\n");
+
         // Keep the last incomplete line for next iteration
-        pendingChunk = lines.pop() || '';
-        
+        pendingChunk = lines.pop() || "";
+
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
+          if (line.startsWith("data: ")) {
             const jsonStr = line.slice(6);
-            if (jsonStr === '[DONE]') continue;
-            
+            if (jsonStr === "[DONE]") continue;
+
             try {
               const parsed = JSON.parse(jsonStr);
               const content = parsed.choices?.[0]?.delta?.content;
-              
+
               if (content) {
                 // Character-by-character streaming for better visual effect
                 for (let i = 0; i < content.length; i++) {
                   fullResponse += content[i];
-                  
+
                   setTestResult({
                     ...initialResult,
                     response: fullResponse,
                     isLoading: false,
                   });
-                  
+
                   // Adjust delay for typing effect (smaller = faster)
-                  await new Promise(resolve => setTimeout(resolve, 10));
+                  await new Promise((resolve) => setTimeout(resolve, 10));
                 }
               }
             } catch (e) {
               // Ignore parsing errors for incomplete chunks
-              console.warn('Failed to parse chunk:', jsonStr);
+              console.warn("Failed to parse chunk:", jsonStr);
             }
           }
         }
@@ -528,519 +529,523 @@ export default function Home() {
   };
 
   return (
-    <div className="container mx-auto px-3 py-4 sm:p-8 font-[family-name:var(--font-geist-sans)]">
-      <header className="mb-4">
-        {/* Top Row - Title and Authentication */}
-        <div className="flex items-start justify-between mb-2">
-          <div className="flex-1 min-w-0">
-            <h1 className="text-xl sm:text-3xl font-bold mb-1">
-              {convertText("OpenNews Demo: AI Content Collection")}
-            </h1>
-            <a
-              href="https://github.com/chyyynh"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs sm:text-sm text-gray-500 hover:text-gray-700 transition-colors flex items-center gap-1"
-            >
-              built by chyyynh
-              <svg
-                className="w-3 h-3 sm:w-4 sm:h-4"
-                fill="currentColor"
-                viewBox="0 0 24 24"
+    <div className="h-screen flex flex-col font-[family-name:var(--font-geist-sans)] px-3 pt-4 sm:px-8 sm:pt-8">
+      <div className="container mx-auto flex flex-col h-full">
+        <header className="flex-shrink-0 mb-2">
+          {/* Top Row - Title and Authentication */}
+          <div className="flex items-start justify-between mb-2">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl sm:text-3xl font-bold mb-1">
+                {convertText("OpenNews Demo: AI Content Collection")}
+              </h1>
+              <a
+                href="https://github.com/chyyynh"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs sm:text-sm text-gray-500 hover:text-gray-700 transition-colors flex items-center gap-1"
               >
-                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
-              </svg>
-            </a>
+                built by chyyynh
+              </a>
+            </div>
+
+            {/* Top Right - Language Selector, KOL Mode, and Authentication */}
+            <div className="flex items-center gap-2 ml-4">
+              {/* Language Selector */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-1 text-sm"
+                  >
+                    {
+                      languageOptions.find(
+                        (lang) => lang.value === selectedLanguage
+                      )?.label
+                    }
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuRadioGroup
+                    value={selectedLanguage}
+                    onValueChange={setSelectedLanguage}
+                  >
+                    {languageOptions.map((option) => (
+                      <DropdownMenuRadioItem
+                        key={option.value}
+                        value={option.value}
+                      >
+                        {option.label}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* KOL Mode Toggle - Only show for logged in users */}
+              {session?.user && (
+                <KOLModeToggle
+                  isEnabled={isKolModeEnabled}
+                  isCollapsed={isSidebarCollapsed}
+                  onClick={() => {
+                    if (!isKolModeEnabled) {
+                      setIsKolModeEnabled(true);
+                    } else {
+                      // Just toggle sidebar collapse/expand when KOL Mode is enabled
+                      setIsSidebarCollapsed(!isSidebarCollapsed);
+                    }
+                  }}
+                />
+              )}
+
+              {/* Authentication (Desktop Only) */}
+              {session?.user ? (
+                <UserMenu
+                  user={session.user}
+                  isKolModeEnabled={isKolModeEnabled}
+                  onKolModeToggle={setIsKolModeEnabled}
+                />
+              ) : (
+                <div className="hidden sm:flex gap-2">
+                  <Link href="/login">
+                    <Button variant="outline" size="sm" className="text-sm">
+                      {convertText("登入")}
+                    </Button>
+                  </Link>
+                  <Link href="/signup">
+                    <Button size="sm" className="text-sm">
+                      {convertText("註冊")}
+                    </Button>
+                  </Link>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Top Right - Language Selector, KOL Mode, and Authentication */}
-          <div className="flex items-center gap-2 ml-4">
-            {/* Language Selector */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-1 text-sm"
-                >
-                  {
-                    languageOptions.find(
-                      (lang) => lang.value === selectedLanguage
-                    )?.label
-                  }
-                  <ChevronDown className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuRadioGroup
-                  value={selectedLanguage}
-                  onValueChange={setSelectedLanguage}
-                >
-                  {languageOptions.map((option) => (
-                    <DropdownMenuRadioItem
-                      key={option.value}
-                      value={option.value}
-                    >
-                      {option.label}
-                    </DropdownMenuRadioItem>
-                  ))}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
+          {/* Bottom Row - Selected Tags */}
+          {selectedTags.length > 0 && (
+            <div className="text-sm text-gray-600 mt-2">
+              {selectedTags.join(", ")}
+            </div>
+          )}
+        </header>
 
-            {/* KOL Mode Toggle - Only show for logged in users */}
-            {session?.user && (
-              <KOLModeToggle
-                isEnabled={isKolModeEnabled}
-                isCollapsed={isSidebarCollapsed}
-                onClick={() => {
-                  if (!isKolModeEnabled) {
-                    setIsKolModeEnabled(true);
-                  } else {
-                    // Just toggle sidebar collapse/expand when KOL Mode is enabled
-                    setIsSidebarCollapsed(!isSidebarCollapsed);
-                  }
-                }}
-              />
-            )}
+        {/* Mobile: Collapsible prompt editor and tags */}
+        <div className="md:hidden flex-shrink-0 mb-6 space-y-3">
+          <CollapsiblePromptEditor
+            user={user}
+            tempCustomPrompt={tempCustomPrompt}
+            setTempCustomPrompt={setTempCustomPrompt}
+            isSaving={isSavingPrompt}
+            saveSuccess={saveSuccess}
+            handleSavePrompt={handleSavePromptWithToast}
+            customPrompt={customPrompt}
+          />
 
-            {/* Authentication (Desktop Only) */}
-            {session?.user ? (
-              <UserMenu
-                user={session.user}
-                isKolModeEnabled={isKolModeEnabled}
-                onKolModeToggle={setIsKolModeEnabled}
-              />
-            ) : (
-              <div className="hidden sm:flex gap-2">
-                <Link href="/login">
-                  <Button variant="outline" size="sm" className="text-sm">
-                    {convertText("登入")}
-                  </Button>
-                </Link>
-                <Link href="/signup">
-                  <Button size="sm" className="text-sm">
-                    {convertText("註冊")}
-                  </Button>
-                </Link>
-              </div>
-            )}
-          </div>
+          <CollapsibleTagSelector
+            user={user}
+            tags={tags}
+            selectedTags={selectedTags}
+            toggleTag={toggleTag}
+            isSaving={isSavingTags}
+            saveUserPreferences={handleSavePreferencesWithToast}
+          />
         </div>
 
-        {/* Bottom Row - Selected Tags */}
-        {selectedTags.length > 0 && (
-          <div className="text-sm text-gray-600 mt-2">
-            {selectedTags.join(", ")}
-          </div>
-        )}
-      </header>
-
-      {/* Time and Sources Filter - appears above news */}
-      <div className="mb-6">
-        {/* Mobile: Single row with horizontal scroll */}
-        <div className="flex sm:hidden gap-2 items-center overflow-x-auto pb-2 scrollbar-hide">
-          {/* Time Filter Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-1 text-xs whitespace-nowrap flex-shrink-0"
-              >
-                {
-                  timeFilterOptions.find(
-                    (option) => option.value === selectedTimeFilter
-                  )?.label
-                }
-                <ChevronDown className="h-3 w-3" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuRadioGroup
-                value={selectedTimeFilter}
-                onValueChange={setSelectedTimeFilter}
-              >
-                {timeFilterOptions.map((option) => (
-                  <DropdownMenuRadioItem
-                    key={option.value}
-                    value={option.value}
-                  >
-                    {option.label}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {/* Separator */}
-          <div className="w-px h-4 bg-gray-300 flex-shrink-0"></div>
-
-          {Object.entries(categorizedSources).map(
-            ([category, categoryItems]) => {
-              const selectedInCategory = categoryItems.filter((item) =>
-                selectedSources.includes(item)
-              );
-
-              return (
-                <DropdownMenu key={category}>
+        {/* Main content area - Flexible */}
+        <div className="flex flex-1 min-h-0 relative">
+          {/* Article list - Scrollable */}
+          <main
+            className={`transition-all duration-500 ease-in-out ${
+              isKolModeEnabled && !isSidebarCollapsed
+                ? "flex-[3] pr-8"
+                : "flex-1 pr-8"
+            }`}
+          >
+            {/* Filters - Sticky inside article area */}
+            <div className="sticky top-0 bg-white/95 backdrop-blur-sm z-10 pb-4 mb-4 border-b border-gray-200">
+              {/* Mobile: All filters */}
+              <div className="flex sm:hidden gap-2 items-center overflow-x-auto pb-2 scrollbar-hide">
+                {/* Time Filter Dropdown */}
+                <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant="outline"
                       size="sm"
                       className="flex items-center gap-1 text-xs whitespace-nowrap flex-shrink-0"
                     >
-                      {selectedInCategory.length === 0
-                        ? category
-                        : selectedInCategory.length === 1
-                        ? selectedInCategory[0]
-                        : `${category} (${selectedInCategory.length})`}
+                      {
+                        timeFilterOptions.find(
+                          (option) => option.value === selectedTimeFilter
+                        )?.label
+                      }
                       <ChevronDown className="h-3 w-3" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-48">
-                    <DropdownMenuCheckboxItem
-                      checked={isCategoryAllSelected(category)}
-                      onCheckedChange={() => toggleCategoryAll(category)}
-                      className="font-medium border-b border-gray-200 mb-1 pb-1"
+                  <DropdownMenuContent>
+                    <DropdownMenuRadioGroup
+                      value={selectedTimeFilter}
+                      onValueChange={setSelectedTimeFilter}
                     >
-                      All {category}
-                    </DropdownMenuCheckboxItem>
-                    {categoryItems.map((source) => (
-                      <DropdownMenuCheckboxItem
-                        key={source}
-                        checked={selectedSources.includes(source)}
-                        onCheckedChange={() =>
-                          toggleSource && toggleSource(source)
-                        }
-                        className="flex items-center gap-2"
-                      >
-                        <SourceIcon source={source} />
-                        <span>{source}</span>
-                      </DropdownMenuCheckboxItem>
-                    ))}
+                      {timeFilterOptions.map((option) => (
+                        <DropdownMenuRadioItem
+                          key={option.value}
+                          value={option.value}
+                        >
+                          {option.label}
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
                   </DropdownMenuContent>
                 </DropdownMenu>
-              );
-            }
-          )}
 
-          {/* RSS Request Button */}
-          <RequestRSSDialog className="ml-2" />
-        </div>
+                {/* Separator */}
+                <div className="w-px h-4 bg-gray-300 flex-shrink-0"></div>
 
-        {/* Desktop: Multi-row with flex-wrap */}
-        <div className="hidden sm:flex flex-wrap gap-2 items-center">
-          {/* Time Filter Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-1 text-sm"
-              >
-                {
-                  timeFilterOptions.find(
-                    (option) => option.value === selectedTimeFilter
-                  )?.label
-                }
-                <ChevronDown className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuRadioGroup
-                value={selectedTimeFilter}
-                onValueChange={setSelectedTimeFilter}
-              >
-                {timeFilterOptions.map((option) => (
-                  <DropdownMenuRadioItem
-                    key={option.value}
-                    value={option.value}
-                  >
-                    {option.label}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                {Object.entries(categorizedSources).map(
+                  ([category, categoryItems]) => {
+                    const selectedInCategory = categoryItems.filter((item) =>
+                      selectedSources.includes(item)
+                    );
 
-          {/* Separator */}
-          <div className="w-px h-6 bg-gray-300 mx-2"></div>
+                    return (
+                      <DropdownMenu key={category}>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex items-center gap-1 text-xs whitespace-nowrap flex-shrink-0"
+                          >
+                            {selectedInCategory.length === 0
+                              ? category
+                              : selectedInCategory.length === 1
+                              ? selectedInCategory[0]
+                              : `${category} (${selectedInCategory.length})`}
+                            <ChevronDown className="h-3 w-3" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="w-48">
+                          <DropdownMenuCheckboxItem
+                            checked={isCategoryAllSelected(category)}
+                            onCheckedChange={() => toggleCategoryAll(category)}
+                            className="font-medium border-b border-gray-200 mb-1 pb-1"
+                          >
+                            All {category}
+                          </DropdownMenuCheckboxItem>
+                          {categoryItems.map((source) => (
+                            <DropdownMenuCheckboxItem
+                              key={source}
+                              checked={selectedSources.includes(source)}
+                              onCheckedChange={() =>
+                                toggleSource && toggleSource(source)
+                              }
+                              className="flex items-center gap-2"
+                            >
+                              <SourceIcon source={source} />
+                              <span>{source}</span>
+                            </DropdownMenuCheckboxItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    );
+                  }
+                )}
 
-          {Object.entries(categorizedSources).map(
-            ([category, categoryItems]) => {
-              const selectedInCategory = categoryItems.filter((item) =>
-                selectedSources.includes(item)
-              );
+                {/* RSS Request Button */}
+                <RequestRSSDialog className="ml-2" />
+              </div>
 
-              return (
-                <DropdownMenu key={category}>
+              {/* Desktop: All filters */}
+              <div className="hidden sm:flex flex-wrap gap-2 items-center">
+                {/* Time Filter Dropdown */}
+                <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant="outline"
                       size="sm"
                       className="flex items-center gap-1 text-sm"
                     >
-                      {selectedInCategory.length === 0
-                        ? category
-                        : selectedInCategory.length === 1
-                        ? selectedInCategory[0]
-                        : `${category} (${selectedInCategory.length})`}
+                      {
+                        timeFilterOptions.find(
+                          (option) => option.value === selectedTimeFilter
+                        )?.label
+                      }
                       <ChevronDown className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-48">
-                    <DropdownMenuCheckboxItem
-                      checked={isCategoryAllSelected(category)}
-                      onCheckedChange={() => toggleCategoryAll(category)}
-                      className="font-medium border-b border-gray-200 mb-1 pb-1"
+                  <DropdownMenuContent>
+                    <DropdownMenuRadioGroup
+                      value={selectedTimeFilter}
+                      onValueChange={setSelectedTimeFilter}
                     >
-                      All {category}
-                    </DropdownMenuCheckboxItem>
-                    {categoryItems.map((source) => (
-                      <DropdownMenuCheckboxItem
-                        key={source}
-                        checked={selectedSources.includes(source)}
-                        onCheckedChange={() =>
-                          toggleSource && toggleSource(source)
-                        }
-                        className="flex items-center gap-2"
-                      >
-                        <SourceIcon source={source} />
-                        <span>{source}</span>
-                      </DropdownMenuCheckboxItem>
-                    ))}
+                      {timeFilterOptions.map((option) => (
+                        <DropdownMenuRadioItem
+                          key={option.value}
+                          value={option.value}
+                        >
+                          {option.label}
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
                   </DropdownMenuContent>
                 </DropdownMenu>
-              );
-            }
-          )}
 
-          {/* RSS Request Button */}
-          <RequestRSSDialog className="ml-2" />
-        </div>
-      </div>
+                {/* Separator */}
+                <div className="w-px h-6 bg-gray-300 mx-2"></div>
 
-      {/* Mobile: Collapsible prompt editor and tags */}
-      <div className="md:hidden mb-6 space-y-3">
-        <CollapsiblePromptEditor
-          user={user}
-          tempCustomPrompt={tempCustomPrompt}
-          setTempCustomPrompt={setTempCustomPrompt}
-          isSaving={isSavingPrompt}
-          saveSuccess={saveSuccess}
-          handleSavePrompt={handleSavePromptWithToast}
-          customPrompt={customPrompt}
-        />
-
-        <CollapsibleTagSelector
-          user={user}
-          tags={tags}
-          selectedTags={selectedTags}
-          toggleTag={toggleTag}
-          isSaving={isSavingTags}
-          saveUserPreferences={handleSavePreferencesWithToast}
-        />
-      </div>
-
-      <div className="flex relative">
-        {/* Article list */}
-        <main
-          className={`flex flex-col gap-4 min-w-0 transition-all duration-500 ease-in-out ${
-            isKolModeEnabled && !isSidebarCollapsed
-              ? "flex-[3] pr-8"
-              : "flex-1 pr-8"
-          }`}
-        >
-          {isLoading && <p>{convertText("正在載入文章...")}</p>}
-
-          {/* Show error if fetchError exists */}
-          {fetchError && (
-            <p className="text-red-500">
-              無法獲取文章。錯誤: {fetchError.message || "未知错误"}
-            </p>
-          )}
-
-          {/* Show articles if no error and articles exist */}
-          {!isLoading && !fetchError && articles && articles.length > 0 ? (
-            <ul className="space-y-4">
-              {articles.map((item: ArticleItem) => (
-                <li
-                  key={item.id}
-                  className={`border rounded-lg p-3 sm:p-4 shadow hover:shadow-md transition-all duration-200 overflow-auto cursor-pointer ${
-                    selectedArticles.some((selected) => selected.id === item.id)
-                      ? "border-blue-500 bg-blue-50"
-                      : "hover:border-gray-400"
-                  }`}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    const isSelected = selectedArticles.some(
-                      (selected) => selected.id === item.id
+                {Object.entries(categorizedSources).map(
+                  ([category, categoryItems]) => {
+                    const selectedInCategory = categoryItems.filter((item) =>
+                      selectedSources.includes(item)
                     );
 
-                    if (isSelected) {
-                      // Remove from selection
-                      setSelectedArticles((prev) =>
-                        prev.filter((selected) => selected.id !== item.id)
-                      );
-                    } else {
-                      // Add to selection
-                      setSelectedArticles((prev) => [...prev, item]);
-                    }
-
-                    // Clear test result when selection changes
-                    if (testResult) {
-                      setTestResult(null);
-                    }
-                  }}
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <SourceIcon source={item.source} className="w-4 h-4" />
-                    <span className="text-sm text-gray-500">{item.source}</span>
-                  </div>
-                  <a
-                    href={item.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hover:underline"
-                  >
-                    <h2 className="text-lg sm:text-xl font-semibold mb-1">
-                      {getArticleTitle(item)}
-                    </h2>
-                  </a>
-                  {/* Show summary if it exists, otherwise show content, limit to 3 lines */}
-                  {(getArticleSummary(item) || item.content) && (
-                    <p className="text-sm text-gray-600 mt-2 line-clamp-3">
-                      {getArticleSummary(item) || item.content || ""}
-                    </p>
-                  )}
-                  <div className="text-sm text-gray-500 mt-2">
-                    <span>
-                      {new Date(item.published_date).toLocaleDateString()}
-                    </span>
-                    {item.tags && item.tags.length > 0 && (
-                      <span className="ml-2">
-                        | {convertText("標籤")}: {item.tags.join(", ")}
-                      </span>
-                    )}
-                    {item.keywords && item.keywords.length > 0 && (
-                      <span className="ml-2">
-                        | {convertText("關鍵字")}: {item.keywords.join(", ")}
-                      </span>
-                    )}
-                  </div>
-                  <SendToTwitterButton
-                    articleTitle={item.title}
-                    articleUrl={item.url}
-                    articleSummary={item.summary || item.content}
-                    customPrompt={customPrompt}
-                  />
-                </li>
-              ))}
-
-              {/* Loading more indicator */}
-              {isLoadingMore && (
-                <li className="flex justify-center py-4">
-                  <div className="flex items-center gap-2">
-                    <Loader className="h-4 w-4 animate-spin" />
-                    <span>{convertText("載入更多文章...")}</span>
-                  </div>
-                </li>
-              )}
-
-              {/* No more data indicator */}
-              {!hasMore && articles.length > 0 && (
-                <li className="flex justify-center py-4">
-                  <span className="text-gray-500">
-                    {convertText("已載入所有文章")}
-                  </span>
-                </li>
-              )}
-            </ul>
-          ) : (
-            // Show message if no articles found and no error
-            !isLoading &&
-            !fetchError && (
-              <p>
-                {convertText("未找到文章")}
-                {selectedTags.length > 0
-                  ? ` ${convertText("標籤")}: "${selectedTags.join(", ")}"`
-                  : ""}
-                .
-              </p>
-            )
-          )}
-        </main>
-
-        {/* KOL Mode Collapsible Sidebar */}
-        {true && (
-          <div
-            className={`relative transition-all duration-500 ease-in-out ${
-              !isKolModeEnabled
-                ? "w-px border-l border-gray-300 bg-gray-100"
-                : isSidebarCollapsed
-                ? "w-px border-l border-gray-300 bg-gray-100"
-                : "flex-[2]"
-            }`}
-          >
-            {/* Sidebar Collapse/Expand Button - Always show when user is logged in */}
-            <div className="absolute top-4 left-0 z-50 -translate-x-1/2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  if (!isKolModeEnabled) {
-                    setIsKolModeEnabled(true);
-                    setIsSidebarCollapsed(false); // Ensure it expands when opening
-                  } else {
-                    setIsSidebarCollapsed(!isSidebarCollapsed);
+                    return (
+                      <DropdownMenu key={category}>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex items-center gap-1 text-sm"
+                          >
+                            {selectedInCategory.length === 0
+                              ? category
+                              : selectedInCategory.length === 1
+                              ? selectedInCategory[0]
+                              : `${category} (${selectedInCategory.length})`}
+                            <ChevronDown className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="w-48">
+                          <DropdownMenuCheckboxItem
+                            checked={isCategoryAllSelected(category)}
+                            onCheckedChange={() => toggleCategoryAll(category)}
+                            className="font-medium border-b border-gray-200 mb-1 pb-1"
+                          >
+                            All {category}
+                          </DropdownMenuCheckboxItem>
+                          {categoryItems.map((source) => (
+                            <DropdownMenuCheckboxItem
+                              key={source}
+                              checked={selectedSources.includes(source)}
+                              onCheckedChange={() =>
+                                toggleSource && toggleSource(source)
+                              }
+                              className="flex items-center gap-2"
+                            >
+                              <SourceIcon source={source} />
+                              <span>{source}</span>
+                            </DropdownMenuCheckboxItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    );
                   }
-                }}
-                className="p-2 h-8 w-8 transition-all duration-300 ease-in-out hover:bg-gray-100 rounded-full border-2 border-gray-200 bg-white"
-                title={
-                  !isKolModeEnabled
-                    ? "開啟 Dashboard"
-                    : isSidebarCollapsed
-                    ? "展開 Dashboard"
-                    : "收縮 Dashboard"
-                }
-              >
-                {!isKolModeEnabled ? (
-                  <ChevronLeft className="h-4 w-4" />
-                ) : isSidebarCollapsed ? (
-                  <ChevronLeft className="h-4 w-4" />
-                ) : (
-                  <ChevronRight className="h-4 w-4" />
                 )}
-              </Button>
+
+                {/* RSS Request Button */}
+                <RequestRSSDialog className="ml-2" />
+              </div>
             </div>
 
-            {/* Dashboard Content - Only show when KOL Mode is enabled */}
-            {isKolModeEnabled && (
-              <CollapsibleSidebar
-                user={user}
-                tempCustomPrompt={tempCustomPrompt}
-                setTempCustomPrompt={setTempCustomPrompt}
-                isSavingPrompt={isSavingPrompt}
-                saveSuccess={saveSuccess}
-                handleSavePrompt={handleSavePromptWithToast}
-                customPrompt={customPrompt}
-                tags={tags}
-                selectedTags={selectedTags}
-                toggleTag={toggleTag}
-                isSavingTags={isSavingTags}
-                saveUserPreferences={handleSavePreferencesWithToast}
-                isCollapsed={isSidebarCollapsed}
-                selectedArticles={selectedArticles}
-                onTestPrompt={handleTestPrompt}
-                onDeselectArticle={handleDeselectArticle}
-                testResult={testResult}
-                onClearTestResult={handleClearTestResult}
-                getArticleTitle={getArticleTitle}
-              />
-            )}
-          </div>
-        )}
+            {/* Scrollable article list */}
+            <div className="overflow-y-auto h-full">
+              {isLoading && <p>{convertText("正在載入文章...")}</p>}
+
+              {/* Show error if fetchError exists */}
+              {fetchError && (
+                <p className="text-red-500">
+                  無法獲取文章。錯誤: {fetchError.message || "未知错误"}
+                </p>
+              )}
+
+              {/* Show articles if no error and articles exist */}
+              {!isLoading && !fetchError && articles && articles.length > 0 ? (
+                <ul className="space-y-4">
+                  {articles.map((item: ArticleItem) => (
+                    <li
+                      key={item.id}
+                      className={`border rounded-lg p-3 sm:p-4 shadow hover:shadow-md transition-all duration-200 overflow-auto cursor-pointer ${
+                        selectedArticles.some(
+                          (selected) => selected.id === item.id
+                        )
+                          ? "border-blue-500 bg-blue-50"
+                          : "hover:border-gray-400"
+                      }`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        const isSelected = selectedArticles.some(
+                          (selected) => selected.id === item.id
+                        );
+
+                        if (isSelected) {
+                          // Remove from selection
+                          setSelectedArticles((prev) =>
+                            prev.filter((selected) => selected.id !== item.id)
+                          );
+                        } else {
+                          // Add to selection
+                          setSelectedArticles((prev) => [...prev, item]);
+                        }
+
+                        // Clear test result when selection changes
+                        if (testResult) {
+                          setTestResult(null);
+                        }
+                      }}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <SourceIcon source={item.source} className="w-4 h-4" />
+                        <span className="text-sm text-gray-500">
+                          {item.source}
+                        </span>
+                      </div>
+                      <a
+                        href={item.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:underline"
+                      >
+                        <h2 className="text-lg sm:text-xl font-semibold mb-1">
+                          {getArticleTitle(item)}
+                        </h2>
+                      </a>
+                      {/* Show summary if it exists, otherwise show content, limit to 3 lines */}
+                      {(getArticleSummary(item) || item.content) && (
+                        <p className="text-sm text-gray-600 mt-2 line-clamp-3">
+                          {getArticleSummary(item) || item.content || ""}
+                        </p>
+                      )}
+                      <div className="text-sm text-gray-500 mt-2">
+                        <span>
+                          {new Date(item.published_date).toLocaleDateString()}
+                        </span>
+                        {item.tags && item.tags.length > 0 && (
+                          <span className="ml-2">
+                            | {convertText("標籤")}: {item.tags.join(", ")}
+                          </span>
+                        )}
+                        {item.keywords && item.keywords.length > 0 && (
+                          <span className="ml-2">
+                            | {convertText("關鍵字")}:{" "}
+                            {item.keywords.join(", ")}
+                          </span>
+                        )}
+                      </div>
+                      <SendToTwitterButton
+                        articleTitle={item.title}
+                        articleUrl={item.url}
+                        articleSummary={item.summary || item.content}
+                        customPrompt={customPrompt}
+                      />
+                    </li>
+                  ))}
+
+                  {/* Loading more indicator */}
+                  {isLoadingMore && (
+                    <li className="flex justify-center py-4">
+                      <div className="flex items-center gap-2">
+                        <Loader className="h-4 w-4 animate-spin" />
+                        <span>{convertText("載入更多文章...")}</span>
+                      </div>
+                    </li>
+                  )}
+
+                  {/* No more data indicator */}
+                  {!hasMore && articles.length > 0 && (
+                    <li className="flex justify-center py-4">
+                      <span className="text-gray-500">
+                        {convertText("已載入所有文章")}
+                      </span>
+                    </li>
+                  )}
+                </ul>
+              ) : (
+                // Show message if no articles found and no error
+                !isLoading &&
+                !fetchError && (
+                  <p>
+                    {convertText("未找到文章")}
+                    {selectedTags.length > 0
+                      ? ` ${convertText("標籤")}: "${selectedTags.join(", ")}"`
+                      : ""}
+                    .
+                  </p>
+                )
+              )}
+            </div>
+          </main>
+
+          {/* KOL Mode Collapsible Sidebar */}
+          {true && (
+            <div
+              className={`relative transition-all duration-500 ease-in-out ${
+                !isKolModeEnabled
+                  ? "w-px border-l border-gray-300 bg-gray-100"
+                  : isSidebarCollapsed
+                  ? "w-px border-l border-gray-300 bg-gray-100"
+                  : "flex-[2]"
+              }`}
+            >
+              {/* Sidebar Collapse/Expand Button - Fixed position */}
+              <div className="absolute top-1/2 left-0 z-50 -translate-x-1/2 -translate-y-1/2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (!isKolModeEnabled) {
+                      setIsKolModeEnabled(true);
+                      setIsSidebarCollapsed(false); // Ensure it expands when opening
+                    } else {
+                      setIsSidebarCollapsed(!isSidebarCollapsed);
+                    }
+                  }}
+                  className="p-2 h-8 w-8 transition-all duration-300 ease-in-out hover:bg-gray-100 rounded-full border-2 border-gray-200 bg-white"
+                  title={
+                    !isKolModeEnabled
+                      ? "開啟 Dashboard"
+                      : isSidebarCollapsed
+                      ? "展開 Dashboard"
+                      : "收縮 Dashboard"
+                  }
+                >
+                  {!isKolModeEnabled ? (
+                    <ChevronLeft className="h-4 w-4" />
+                  ) : isSidebarCollapsed ? (
+                    <ChevronLeft className="h-4 w-4" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+
+              {/* Dashboard Content - Only show when KOL Mode is enabled */}
+              {isKolModeEnabled && (
+                <CollapsibleSidebar
+                  user={user}
+                  tempCustomPrompt={tempCustomPrompt}
+                  setTempCustomPrompt={setTempCustomPrompt}
+                  isSavingPrompt={isSavingPrompt}
+                  saveSuccess={saveSuccess}
+                  handleSavePrompt={handleSavePromptWithToast}
+                  customPrompt={customPrompt}
+                  tags={tags}
+                  selectedTags={selectedTags}
+                  toggleTag={toggleTag}
+                  isSavingTags={isSavingTags}
+                  saveUserPreferences={handleSavePreferencesWithToast}
+                  isCollapsed={isSidebarCollapsed}
+                  selectedArticles={selectedArticles}
+                  onTestPrompt={handleTestPrompt}
+                  onDeselectArticle={handleDeselectArticle}
+                  testResult={testResult}
+                  onClearTestResult={handleClearTestResult}
+                  getArticleTitle={getArticleTitle}
+                />
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

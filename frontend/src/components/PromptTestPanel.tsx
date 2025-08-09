@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Copy, Check, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
@@ -37,14 +37,6 @@ export function PromptTestPanel({
   getArticleTitle,
 }: PromptTestPanelProps) {
   const [copied, setCopied] = useState(false);
-  const responseRef = useRef<HTMLDivElement>(null);
-
-  // Auto-scroll to bottom when response content changes
-  useEffect(() => {
-    if (result?.response && responseRef.current && !result.isLoading) {
-      responseRef.current.scrollTop = responseRef.current.scrollHeight;
-    }
-  }, [result?.response, result?.isLoading]);
 
   const handleCopy = async () => {
     if (!result?.response) return;
@@ -88,48 +80,49 @@ export function PromptTestPanel({
   if (!result) return null;
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-md font-medium">測試結果</h3>
-        <div className="flex gap-2">
-          {result.response && !result.isLoading && !result.error && (
-            <Button
-              onClick={handleCopy}
-              variant="outline"
-              size="sm"
-              className="h-7 px-2 text-xs"
-            >
-              {copied ? (
-                <>
-                  <Check className="h-3 w-3 mr-1" />
-                  已複製
-                </>
-              ) : (
-                <>
-                  <Copy className="h-3 w-3 mr-1" />
-                  複製
-                </>
-              )}
-            </Button>
-          )}
-          {onClearResult && (
-            <Button
-              onClick={onClearResult}
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-xs"
-            >
-              <RefreshCw className="h-3 w-3 mr-1" />
-              清除
-            </Button>
-          )}
+    <div className="px-3">
+      {/* Sticky Header */}
+      <div className="sticky top-0 bg-gray-50/30 -mx-3 px-3 py-2 mb-4 border-b border-gray-200/50 backdrop-blur-sm z-10">
+        <div className="flex items-center justify-between">
+          <div className="text-xs text-gray-600 font-medium">AI 回應</div>
+          <div className="flex gap-2">
+            {result.response && !result.isLoading && !result.error && (
+              <Button
+                onClick={handleCopy}
+                variant="outline"
+                size="sm"
+                className="h-7 px-2 text-xs"
+              >
+                {copied ? (
+                  <>
+                    <Check className="h-3 w-3 mr-1" />
+                    已複製
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-3 w-3 mr-1" />
+                    複製
+                  </>
+                )}
+              </Button>
+            )}
+            {onClearResult && (
+              <Button
+                onClick={onClearResult}
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs"
+              >
+                <RefreshCw className="h-3 w-3 mr-1" />
+                清除
+              </Button>
+            )}
+          </div>
         </div>
       </div>
-
-      {/* Result */}
-      <div className="border-t border-l border-r rounded-lg p-3 bg-white">
-        <div className="text-xs text-gray-600 font-medium mb-2">AI 回應</div>
+      
+      {/* Content */}
+      <div>
         {result.isLoading ? (
           <div className="flex items-center gap-2 text-gray-500 py-4">
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
@@ -141,10 +134,7 @@ export function PromptTestPanel({
             <div className="mt-1">{result.error}</div>
           </div>
         ) : result.response ? (
-          <div 
-            ref={responseRef}
-            className="text-sm text-gray-800 whitespace-pre-wrap max-h-80 overflow-y-auto scroll-smooth"
-          >
+          <div className="text-sm text-gray-800 whitespace-pre-wrap">
             {result.response}
           </div>
         ) : (
